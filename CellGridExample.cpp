@@ -1,13 +1,13 @@
-// CellGridExample.cpp
+/*/ CellGridExample.cpp
 // Example demonstrations of using the CellGrid system
 // This file is NOT compiled - it's for reference only
 
-#include "CellGrid.h"
-#include "Pathfinder.h"
-#include "Unit.h"
-#include "Food.h"
-#include "Seed.h"
-#include "Stockpile.h"
+//#include "CellGrid.h"
+//#include "Pathfinder.h"
+//#include "Unit.h"
+//#include "Food.h"
+//#include "Seed.h"
+//#include "Stockpile.h"
 
 // Example 1: Initialize and update the cell grid
 void example1_InitializeAndUpdate() {
@@ -344,3 +344,4 @@ void example10_PerformanceComparison(
     // New: ~100-400 cell checks (10x10 to 20x20 area)
     // Speedup: 2.5x - 10x faster!
 }
+*/
