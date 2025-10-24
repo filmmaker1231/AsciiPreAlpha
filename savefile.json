@@ -1,0 +1,55 @@
+{
+    "units": [
+        {
+            "buildingSkillExperience": 3.657071113586426,
+            "buildingSkillLevel": 23,
+            "dx": 1,
+            "dy": 0,
+            "gender": "Male",
+            "hunger": 56.342830657958984,
+            "id": 3,
+            "layer": 1,
+            "name": "Liam",
+            "role": "None",
+            "stepsRemaining": 2,
+            "strength": 24,
+            "type": "Human",
+            "x": 800,
+            "y": 640
+        },
+        {
+            "buildingSkillExperience": 5.496056079864502,
+            "buildingSkillLevel": 23,
+            "dx": 0,
+            "dy": 1,
+            "gender": "Female",
+            "hunger": 54.50382995605469,
+            "id": 1,
+            "layer": 1,
+            "name": "Alice",
+            "role": "Elder",
+            "stepsRemaining": 1,
+            "strength": 34,
+            "type": "Human",
+            "x": 720,
+            "y": 120
+        },
+        {
+            "buildingSkillExperience": 4.9840617179870605,
+            "buildingSkillLevel": 23,
+            "dx": 0,
+            "dy": 1,
+            "gender": "Other",
+            "hunger": 55.01584243774414,
+            "id": 2,
+            "layer": 1,
+            "name": "Morgan",
+            "role": "Sheriff",
+            "stepsRemaining": 1,
+            "strength": 74,
+            "type": "Human",
+            "x": 960,
+            "y": 200
+        }
+    ]
+}

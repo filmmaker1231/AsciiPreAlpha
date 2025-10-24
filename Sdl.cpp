@@ -1,0 +1,21 @@
+#include "Sdl.h"
+#include "sdlWindow.h"
+#include <iostream>
+
+sdl runSdl() {
+    sdl state;
+    state.renderer = nullptr;
+    state.window = startSdlWindow(state.renderer);
+    if (!state.window || !state.renderer) {
+        std::cerr << "Failed to create SDL window or renderer." << std::endl;
+        return state;
+    }
+
+    int gridWidth, gridHeight;
+    SDL_GetWindowSize(state.window, &gridWidth, &gridHeight);
+
+    state.cellGrid = new CellGrid(gridWidth, gridHeight);
+    state.showCellGrid = false;
+    return state;
+}
+
