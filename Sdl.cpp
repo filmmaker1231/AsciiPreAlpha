@@ -20,7 +20,7 @@ sdl runSdl() {
     state.showCellGrid = false;
     
     state.unitManager = new UnitManager();
-    if (!state.unitManager->initializeFont("", 24)) {
+    if (!state.unitManager->initializeFont(nullptr, 24)) {
         std::cerr << "Warning: Failed to initialize font for units." << std::endl;
     }
     
