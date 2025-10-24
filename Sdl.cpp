@@ -21,9 +21,15 @@ sdl runSdl() {
 }
 
 void sdlDestroyWindow(sdl& app) {
-    SDL_DestroyRenderer(app.renderer);
-    SDL_DestroyWindow(app.window);
-    delete app.cellGrid;
+    if (app.renderer) {
+        SDL_DestroyRenderer(app.renderer);
+    }
+    if (app.window) {
+        SDL_DestroyWindow(app.window);
+    }
+    if (app.cellGrid) {
+        delete app.cellGrid;
+    }
     TTF_Quit();
     SDL_Quit();
 }
