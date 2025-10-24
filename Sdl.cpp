@@ -1,5 +1,6 @@
 #include "Sdl.h"
 #include "sdlWindow.h"
+#include <SDL_ttf.h>
 #include <iostream>
 
 sdl runSdl() {
@@ -19,3 +20,16 @@ sdl runSdl() {
     return state;
 }
 
+void sdlDestroyWindow(sdl& app) {
+    if (app.renderer) {
+        SDL_DestroyRenderer(app.renderer);
+    }
+    if (app.window) {
+        SDL_DestroyWindow(app.window);
+    }
+    if (app.cellGrid) {
+        delete app.cellGrid;
+    }
+    TTF_Quit();
+    SDL_Quit();
+}
