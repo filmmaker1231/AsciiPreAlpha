@@ -1,0 +1,73 @@
+#include "UnitManager.h"
+#include <iostream>
+
+UnitManager::UnitManager() : font(nullptr) {
+}
+
+UnitManager::~UnitManager() {
+    if (font) {
+        TTF_CloseFont(font);
+    }
+}
+
+bool UnitManager::initializeFont(const char* fontPath, int fontSize) {
+    font = TTF_OpenFont(fontPath, fontSize);
+    if (!font) {
+        // Try to load a default system font
+        // On Windows, try Arial
+        font = TTF_OpenFont("C:/Windows/Fonts/arial.ttf", fontSize);
+        if (!font) {
+            // On Linux, try DejaVu Sans
+            font = TTF_OpenFont("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", fontSize);
+            if (!font) {
+                std::cerr << "Failed to load font: " << TTF_GetError() << std::endl;
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+void UnitManager::spawnUnit(int x, int y, const std::string& name) {
+    units.emplace_back(x, y, '@', name);
+    std::cout << "Spawned unit '" << name << "' at (" << x << ", " << y << ")" << std::endl;
+}
+
+void UnitManager::renderUnits(SDL_Renderer* renderer) {
+    if (!font) {
+        return;
+    }
+    
+    SDL_Color color = {255, 255, 255, 255}; // White color
+    
+    for (const auto& unit : units) {
+        // Create surface with the unit symbol
+        std::string symbolStr(1, unit.symbol);
+        SDL_Surface* surface = TTF_RenderText_Solid(font, symbolStr.c_str(), color);
+        if (!surface) {
+            continue;
+        }
+        
+        // Create texture from surface
+        SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+        if (texture) {
+            SDL_Rect dstRect = {unit.x, unit.y, surface->w, surface->h};
+            SDL_RenderCopy(renderer, texture, nullptr, &dstRect);
+            SDL_DestroyTexture(texture);
+        }
+        
+        SDL_FreeSurface(surface);
+    }
+}
+
+void initializeGameUnits(UnitManager* unitManager) {
+    if (!unitManager) {
+        return;
+    }
+    
+    // Spawn a few sample units
+    unitManager->spawnUnit(200, 150, "Player");
+    unitManager->spawnUnit(400, 300, "Guard");
+    unitManager->spawnUnit(600, 450, "Merchant");
+}
+
