@@ -2,10 +2,13 @@
 #include <SDL.h>
 #include "CellGrid.h"
 
+class UnitManager; // Forward declaration
+
 struct sdl {
     SDL_Window* window = nullptr;
     SDL_Renderer* renderer = nullptr;
     CellGrid* cellGrid = nullptr;
+    UnitManager* unitManager = nullptr;
     bool showCellGrid = false;
 };
 

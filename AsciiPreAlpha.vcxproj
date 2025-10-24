@@ -26,6 +26,7 @@
     <ClInclude Include="sdlWindow.h" />
     <ClInclude Include="SearchCell.h" />
     <ClInclude Include="Unit.h" />
+    <ClInclude Include="UnitManager.h" />
     <ClInclude Include="UnitPlacementManager.h" />
     <ClInclude Include="World.h" />
   </ItemGroup>
@@ -39,6 +40,7 @@
     <ClCompile Include="Sdl.cpp" />
     <ClCompile Include="Sdl2.cpp" />
     <ClCompile Include="sdlWindow.cpp" />
+    <ClCompile Include="UnitManager.cpp" />
     <ClCompile Include="UnitPlacementManager.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

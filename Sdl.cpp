@@ -1,5 +1,6 @@
 #include "Sdl.h"
 #include "sdlWindow.h"
+#include "UnitManager.h"
 #include <SDL_ttf.h>
 #include <iostream>
 
@@ -17,6 +18,12 @@ sdl runSdl() {
 
     state.cellGrid = new CellGrid(gridWidth, gridHeight);
     state.showCellGrid = false;
+    
+    state.unitManager = new UnitManager();
+    if (!state.unitManager->initializeFont(nullptr, 24)) {
+        std::cerr << "Warning: Failed to initialize font for units." << std::endl;
+    }
+    
     return state;
 }
 
@@ -29,6 +36,9 @@ void sdlDestroyWindow(sdl& app) {
     }
     if (app.cellGrid) {
         delete app.cellGrid;
+    }
+    if (app.unitManager) {
+        delete app.unitManager;
     }
     TTF_Quit();
     SDL_Quit();
