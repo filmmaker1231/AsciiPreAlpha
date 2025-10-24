@@ -13,13 +13,9 @@ int main() {
         return 1;
     }
 
-    runMainLoop(app.window, app.renderer, *app.cellGrid, app.showCellGrid);
+    runMainLoop(app);
 
-    SDL_DestroyRenderer(app.renderer);
-    SDL_DestroyWindow(app.window);
-    delete app.cellGrid;
-    TTF_Quit();
-    SDL_Quit();
+    sdlDestroyWindow(app);
 
     return 0;
 }

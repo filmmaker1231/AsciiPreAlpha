@@ -1,7 +1,7 @@
 #include "GameLoop.h"
 #include "CellGrid.h"
 
-void runMainLoop(SDL_Window* window, SDL_Renderer* renderer, CellGrid& cellGrid, bool& showCellGrid) {
+void runMainLoop(sdl& app) {
     bool running = true;
     SDL_Event event;
     while (running) {
@@ -10,10 +10,10 @@ void runMainLoop(SDL_Window* window, SDL_Renderer* renderer, CellGrid& cellGrid,
                 running = false;
             }
         }
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-        SDL_RenderClear(renderer);
-        renderCellGrid(renderer, cellGrid, showCellGrid);
-        SDL_RenderPresent(renderer);
+        SDL_SetRenderDrawColor(app.renderer, 0, 0, 0, 255);
+        SDL_RenderClear(app.renderer);
+        renderCellGrid(app.renderer, *app.cellGrid, app.showCellGrid);
+        SDL_RenderPresent(app.renderer);
         SDL_Delay(16); // ~60 FPS
     }
 }
