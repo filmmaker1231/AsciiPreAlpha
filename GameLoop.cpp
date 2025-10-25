@@ -26,14 +26,14 @@ void runMainLoop(sdl& app) {
         ++frameCounter;
 
         // Process actions for each unit and re-queue Wander periodically if empty
-        for (auto& unit : app.unitManager->getUnits()) {
-            unit.processAction(*app.cellGrid);
+		for (auto& unit : app.unitManager->getUnits()) {
+			unit.processAction(*app.cellGrid);
 
-            // Re-add Wander only periodically to avoid spamming pathfinding if it fails
-            if (unit.actionQueue.empty() && (frameCounter % WANDER_READD_FRAMES == 0)) {
-                unit.addAction(Action(ActionType::Wander, 1));
-            }
-        }
+			// Only re-add Wander if the queue is empty (not every N frames)
+			if (unit.actionQueue.empty()) {
+				unit.addAction(Action(ActionType::Wander, 1));
+			}
+		}
 
         SDL_SetRenderDrawColor(app.renderer, 0, 0, 0, 255);
         SDL_RenderClear(app.renderer);

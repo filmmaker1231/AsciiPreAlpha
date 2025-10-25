@@ -77,6 +77,11 @@ void initializeGameUnits(UnitManager* unitManager) {
     unitManager->spawnUnit(200, 150, "Player");
     unitManager->spawnUnit(400, 300, "Guard");
     unitManager->spawnUnit(600, 450, "Merchant");
+
+	// Set moveDelay for all units after spawning
+	for (auto& unit : unitManager->getUnits()) {
+        unit.moveDelay = 1000000;
+	}
 }
 
 void UnitManager::renderUnitPaths(SDL_Renderer* renderer, const CellGrid& cellGrid) {

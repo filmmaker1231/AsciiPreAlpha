@@ -13,6 +13,8 @@ public:
     char symbol;        // Character to display (e.g., '@')
     int health;
     int id;
+	int moveCooldown = 0;  // Frames left until next move
+    int moveDelay = 1000000;  // Move every 10 frames (adjust as needed)
 
 
 

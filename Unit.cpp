@@ -54,6 +54,12 @@ void Unit::processAction(CellGrid& cellGrid) {
             }
         }
 
+        // Only move if cooldown has expired
+        if (moveCooldown > 0) {
+            --moveCooldown;
+            return;
+        }
+
         // Move along the path if there is one
         if (!path.empty()) {
             auto [nextGridX, nextGridY] = path.front();
@@ -61,11 +67,12 @@ void Unit::processAction(CellGrid& cellGrid) {
             cellGrid.gridToPixel(nextGridX, nextGridY, nextPixelX, nextPixelY);
             x = nextPixelX;
             y = nextPixelY;
+            moveCooldown = moveDelay;
             path.erase(path.begin());
+            return; // Prevents any further moves this frame
         }
 
-        // Pop the action once if the path is empty (either no path found or finished).
-        // Defensive check to avoid popping an already-empty queue.
+        // If path is empty (no path found or finished), pop the action
         if (path.empty()) {
             if (!actionQueue.empty()) {
                 actionQueue.pop();
