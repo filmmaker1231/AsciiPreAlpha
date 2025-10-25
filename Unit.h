@@ -13,6 +13,8 @@ public:
     char symbol;        // Character to display (e.g., '@')
     int health;
     int id;
+    unsigned int moveDelay;      // Delay in milliseconds between moves
+    unsigned int lastMoveTime;   // Last time the unit moved (in SDL ticks)
 
 
 
@@ -26,6 +28,6 @@ public:
 	
 
      Unit(int x, int y, char symbol, const std::string& name, int health = 100, int id = 0)
-		 : x(x), y(y), symbol(symbol), name(name), health(health), id(id) {
+		 : x(x), y(y), symbol(symbol), name(name), health(health), id(id), moveDelay(200), lastMoveTime(0) {
 	 }
 };
