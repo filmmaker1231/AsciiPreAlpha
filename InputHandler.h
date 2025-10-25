@@ -1,5 +1,5 @@
 #pragma once
-#include "GameLoop.h"
+#include "Sdl.h"
 #include "CellGrid.h"
 #include "UnitManager.h"
 
