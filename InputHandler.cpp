@@ -1,7 +1,5 @@
-//#include "sdlWindow.h"
 #include "CellGrid.h"
-//#include "GameLoop.h"
-//#include "Sdl.h"
+#include "Sdl.h"
 #include "UnitManager.h"
 #include "InputHandler.h"
 #include "Pathfinding.h"
