@@ -16,6 +16,9 @@ public:
     FoodManager();
     ~FoodManager();
 
+    // Initialize font for rendering
+    bool initializeFont(const char* fontPath, int fontSize);
+
     // Spawn a unit with @ symbol at given position
     void spawnFood(int x, int y, const std::string& type);
 

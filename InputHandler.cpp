@@ -27,8 +27,8 @@ void handleInput(sdl& app) {
     
 	// Spawn food
 	if (fHeld && (mouseButtons & SDL_BUTTON(SDL_BUTTON_LEFT))) {
-		if (app.unitManager) {
-			app.unitManager->spawnUnit(mouseX, mouseY, "food");
+		if (app.foodManager) {
+			app.foodManager->spawnFood(mouseX, mouseY, "food");
 		}
 	}
 

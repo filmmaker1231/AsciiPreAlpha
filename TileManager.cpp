@@ -13,6 +13,29 @@ FoodManager::~FoodManager() {
     }
 }
 
+bool FoodManager::initializeFont(const char* fontPath, int fontSize) {
+    // Try provided font path first (skip if nullptr or empty)
+    if (fontPath && fontPath[0] != '\0') {
+        font = TTF_OpenFont(fontPath, fontSize);
+        if (font) {
+            return true;
+        }
+    }
+    
+    // Try to load a default system font
+    // On Windows, try Arial
+    font = TTF_OpenFont("C:/Windows/Fonts/arial.ttf", fontSize);
+    if (!font) {
+        // On Linux, try DejaVu Sans
+        font = TTF_OpenFont("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", fontSize);
+        if (!font) {
+            std::cerr << "Failed to load font: " << TTF_GetError() << std::endl;
+            return false;
+        }
+    }
+    return true;
+}
+
 
 
 
