@@ -1,7 +1,6 @@
 #pragma once
-#include "CellGrid.h"
+#include "Sdl.h"
 #include "UnitManager.h"
-#include "InputHandler.h"
 
 
 

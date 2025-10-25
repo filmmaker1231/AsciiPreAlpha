@@ -1,6 +1,5 @@
 #pragma once
-#include "GameLoop.h"
-#include "CellGrid.h"
+#include "Sdl.h"
 #include "UnitManager.h"
 
 void handleInput(sdl& app);
