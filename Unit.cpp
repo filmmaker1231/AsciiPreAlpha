@@ -3,6 +3,7 @@
 #include "Pathfinding.h"
 #include <random>
 #include <iostream>
+#include <SDL.h>
 
 void Unit::addAction(const Action& action) {
     if (actionQueue.empty()) {
@@ -24,6 +25,23 @@ void Unit::addAction(const Action& action) {
 }
 
 void Unit::processAction(CellGrid& cellGrid) {
+    // First, handle any path movement (works with or without actions)
+    // This allows manually-assigned paths (e.g., via P+click) to be followed
+    if (!path.empty()) {
+        unsigned int currentTime = SDL_GetTicks();
+        // Only move if enough time has passed since last move, or if this is the first move
+        if (lastMoveTime == 0 || currentTime - lastMoveTime >= moveDelay) {
+            auto [nextGridX, nextGridY] = path.front();
+            int nextPixelX, nextPixelY;
+            cellGrid.gridToPixel(nextGridX, nextGridY, nextPixelX, nextPixelY);
+            x = nextPixelX;
+            y = nextPixelY;
+            path.erase(path.begin());
+            lastMoveTime = currentTime;
+        }
+    }
+
+    // Then process any queued actions
     if (actionQueue.empty()) return;
     Action current = actionQueue.top();
 
@@ -54,25 +72,8 @@ void Unit::processAction(CellGrid& cellGrid) {
             }
         }
 
-        // Only move if cooldown has expired
-        if (moveCooldown > 0) {
-            --moveCooldown;
-            return;
-        }
-
-        // Move along the path if there is one
-        if (!path.empty()) {
-            auto [nextGridX, nextGridY] = path.front();
-            int nextPixelX, nextPixelY;
-            cellGrid.gridToPixel(nextGridX, nextGridY, nextPixelX, nextPixelY);
-            x = nextPixelX;
-            y = nextPixelY;
-            moveCooldown = moveDelay;
-            path.erase(path.begin());
-            return; // Prevents any further moves this frame
-        }
-
-        // If path is empty (no path found or finished), pop the action
+        // Pop the action once if the path is empty (either no path found or finished).
+        // Defensive check to avoid popping an already-empty queue.
         if (path.empty()) {
             if (!actionQueue.empty()) {
                 actionQueue.pop();
