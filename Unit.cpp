@@ -1,4 +1,6 @@
 #include "Unit.h"
+#include "CellGrid.h"
+#include "Pathfinding.h"
 #include <random>
 
 
@@ -30,7 +32,7 @@ void Unit::processAction(CellGrid& cellGrid) {
 		// If no path, pick a random walkable cell nearby and path to it
 		if (path.empty()) {
 			int gridX, gridY;
-			g_cellGrid->pixelToGrid(x, y, gridX, gridY);
+			cellGrid.pixelToGrid(x, y, gridX, gridY);
 
 			// Try up to 10 times to find a random walkable cell nearby
 			std::random_device rd;
@@ -42,8 +44,8 @@ void Unit::processAction(CellGrid& cellGrid) {
 				int dy = dist(gen);
 				int nx = gridX + dx;
 				int ny = gridY + dy;
-				if ((dx != 0 || dy != 0) && g_cellGrid->isCellWalkable(nx, ny)) {
-					auto newPath = aStarFindPath(gridX, gridY, nx, ny, *g_cellGrid);
+				if ((dx != 0 || dy != 0) && cellGrid.isCellWalkable(nx, ny)) {
+					auto newPath = aStarFindPath(gridX, gridY, nx, ny, cellGrid);
 					if (!newPath.empty()) {
 						path = newPath;
 						break;
@@ -56,7 +58,7 @@ void Unit::processAction(CellGrid& cellGrid) {
 		if (!path.empty()) {
 			auto [nextGridX, nextGridY] = path.front();
 			int nextPixelX, nextPixelY;
-			g_cellGrid->gridToPixel(nextGridX, nextGridY, nextPixelX, nextPixelY);
+			cellGrid.gridToPixel(nextGridX, nextGridY, nextPixelX, nextPixelY);
 			x = nextPixelX;
 			y = nextPixelY;
 			path.erase(path.begin());
@@ -71,12 +73,10 @@ void Unit::processAction(CellGrid& cellGrid) {
 			actionQueue.pop();
 		}
 		break;
-	
-        case ActionType::Eat:
-            // ... eat logic ...
-            break;
-        // Add more cases as needed
-    }
-    // When done with the action:
-    actionQueue.pop();
+	}
+	case ActionType::Eat:
+		// ... eat logic ...
+		break;
+	// Add more cases as needed
+	}
 }

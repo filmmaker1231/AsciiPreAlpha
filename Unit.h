@@ -4,6 +4,7 @@
 #include <queue>
 #include "Actions.h"
 
+class CellGrid; // Forward declaration
 
 class Unit {
 public:
