@@ -3,6 +3,7 @@
 #include "Pathfinding.h"
 #include <random>
 #include <iostream>
+#include <SDL.h>
 
 void Unit::addAction(const Action& action) {
     if (actionQueue.empty()) {
@@ -56,12 +57,17 @@ void Unit::processAction(CellGrid& cellGrid) {
 
         // Move along the path if there is one
         if (!path.empty()) {
-            auto [nextGridX, nextGridY] = path.front();
-            int nextPixelX, nextPixelY;
-            cellGrid.gridToPixel(nextGridX, nextGridY, nextPixelX, nextPixelY);
-            x = nextPixelX;
-            y = nextPixelY;
-            path.erase(path.begin());
+            unsigned int currentTime = SDL_GetTicks();
+            // Only move if enough time has passed since last move, or if this is the first move
+            if (lastMoveTime == 0 || currentTime - lastMoveTime >= moveDelay) {
+                auto [nextGridX, nextGridY] = path.front();
+                int nextPixelX, nextPixelY;
+                cellGrid.gridToPixel(nextGridX, nextGridY, nextPixelX, nextPixelY);
+                x = nextPixelX;
+                y = nextPixelY;
+                path.erase(path.begin());
+                lastMoveTime = currentTime;
+            }
         }
 
         // Pop the action once if the path is empty (either no path found or finished).
