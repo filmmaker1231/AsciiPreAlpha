@@ -23,7 +23,7 @@ void runMainLoop(sdl& app) {
         pathClick(app);
 
 		for (auto& unit : app.unitManager->getUnits()) {
-			unit.processAction();
+			unit.processAction(*app.cellGrid);
         }
 
 
