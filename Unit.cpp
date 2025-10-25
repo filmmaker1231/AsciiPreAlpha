@@ -58,8 +58,8 @@ void Unit::processAction(CellGrid& cellGrid) {
         // Move along the path if there is one
         if (!path.empty()) {
             unsigned int currentTime = SDL_GetTicks();
-            // Only move if enough time has passed since last move
-            if (currentTime - lastMoveTime >= moveDelay) {
+            // Only move if enough time has passed since last move, or if this is the first move
+            if (lastMoveTime == 0 || currentTime - lastMoveTime >= moveDelay) {
                 auto [nextGridX, nextGridY] = path.front();
                 int nextPixelX, nextPixelY;
                 cellGrid.gridToPixel(nextGridX, nextGridY, nextPixelX, nextPixelY);
