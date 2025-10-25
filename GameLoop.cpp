@@ -9,6 +9,9 @@
 void runMainLoop(sdl& app) {
     bool running = true;
     SDL_Event event;
+    static int frameCounter = 0;
+    const int WANDER_READD_FRAMES = 4; // try re-adding Wander once every 4 frames
+
     while (running) {
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) {
@@ -16,26 +19,28 @@ void runMainLoop(sdl& app) {
             }
         }
 
-		
         handleInput(app);
-
 
         pathClick(app);
 
-		for (auto& unit : app.unitManager->getUnits()) {
-			unit.processAction(*app.cellGrid);
+        ++frameCounter;
+
+        // Process actions for each unit and re-queue Wander periodically if empty
+        for (auto& unit : app.unitManager->getUnits()) {
+            unit.processAction(*app.cellGrid);
+
+            // Re-add Wander only periodically to avoid spamming pathfinding if it fails
+            if (unit.actionQueue.empty() && (frameCounter % WANDER_READD_FRAMES == 0)) {
+                unit.addAction(Action(ActionType::Wander, 1));
+            }
         }
-
-
-
-
 
         SDL_SetRenderDrawColor(app.renderer, 0, 0, 0, 255);
         SDL_RenderClear(app.renderer);
         renderCellGrid(app.renderer, *app.cellGrid, app.showCellGrid);
         if (app.unitManager) {
             app.unitManager->renderUnits(app.renderer);
-			app.unitManager->renderUnitPaths(app.renderer, *app.cellGrid);
+            app.unitManager->renderUnitPaths(app.renderer, *app.cellGrid);
         }
         SDL_RenderPresent(app.renderer);
         SDL_Delay(16); // ~60 FPS

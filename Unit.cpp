@@ -2,7 +2,7 @@
 #include "CellGrid.h"
 #include "Pathfinding.h"
 #include <random>
-
+#include <iostream>
 
 void Unit::addAction(const Action& action) {
     if (actionQueue.empty()) {
@@ -24,59 +24,58 @@ void Unit::addAction(const Action& action) {
 }
 
 void Unit::processAction(CellGrid& cellGrid) {
-	if (actionQueue.empty()) return;
-	Action current = actionQueue.top();
+    if (actionQueue.empty()) return;
+    Action current = actionQueue.top();
 
-	switch (current.type) {
-	case ActionType::Wander: {
-		// If no path, pick a random walkable cell nearby and path to it
-		if (path.empty()) {
-			int gridX, gridY;
-			cellGrid.pixelToGrid(x, y, gridX, gridY);
+    switch (current.type) {
+    case ActionType::Wander: {
+        // If no path, pick a random walkable cell nearby and path to it
+        if (path.empty()) {
+            int gridX, gridY;
+            cellGrid.pixelToGrid(x, y, gridX, gridY);
 
-			// Try up to 10 times to find a random walkable cell nearby
-			std::random_device rd;
-			std::mt19937 gen(rd());
-			std::uniform_int_distribution<> dist(-5, 5);
+            // Try up to 10 times to find a random walkable cell nearby
+            std::random_device rd;
+            std::mt19937 gen(rd());
+            std::uniform_int_distribution<> dist(-5, 5);
 
-			for (int attempt = 0; attempt < 10; ++attempt) {
-				int dx = dist(gen);
-				int dy = dist(gen);
-				int nx = gridX + dx;
-				int ny = gridY + dy;
-				if ((dx != 0 || dy != 0) && cellGrid.isCellWalkable(nx, ny)) {
-					auto newPath = aStarFindPath(gridX, gridY, nx, ny, cellGrid);
-					if (!newPath.empty()) {
-						path = newPath;
-						break;
-					}
-				}
-			}
-		}
+            for (int attempt = 0; attempt < 10; ++attempt) {
+                int dx = dist(gen);
+                int dy = dist(gen);
+                int nx = gridX + dx;
+                int ny = gridY + dy;
+                if ((dx != 0 || dy != 0) && cellGrid.isCellWalkable(nx, ny)) {
+                    auto newPath = aStarFindPath(gridX, gridY, nx, ny, cellGrid);
+                    if (!newPath.empty()) {
+                        path = newPath;
+                        break;
+                    }
+                }
+            }
+        }
 
-		// Move along the path if there is one
-		if (!path.empty()) {
-			auto [nextGridX, nextGridY] = path.front();
-			int nextPixelX, nextPixelY;
-			cellGrid.gridToPixel(nextGridX, nextGridY, nextPixelX, nextPixelY);
-			x = nextPixelX;
-			y = nextPixelY;
-			path.erase(path.begin());
-		}
-		else {
-			// No path found, pop the action to try again next frame
-			actionQueue.pop();
-		}
+        // Move along the path if there is one
+        if (!path.empty()) {
+            auto [nextGridX, nextGridY] = path.front();
+            int nextPixelX, nextPixelY;
+            cellGrid.gridToPixel(nextGridX, nextGridY, nextPixelX, nextPixelY);
+            x = nextPixelX;
+            y = nextPixelY;
+            path.erase(path.begin());
+        }
 
-		// If path is now empty, pop the action to trigger a new wander next frame
-		if (path.empty()) {
-			actionQueue.pop();
-		}
-		break;
-	}
-	case ActionType::Eat:
-		// ... eat logic ...
-		break;
-	// Add more cases as needed
-	}
+        // Pop the action once if the path is empty (either no path found or finished).
+        // Defensive check to avoid popping an already-empty queue.
+        if (path.empty()) {
+            if (!actionQueue.empty()) {
+                actionQueue.pop();
+            }
+        }
+        break;
+    }
+    case ActionType::Eat:
+        // ... eat logic ...
+        break;
+    // Add more cases as needed
+    }
 }
