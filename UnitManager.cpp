@@ -80,7 +80,7 @@ void initializeGameUnits(UnitManager* unitManager) {
 
 	// Set moveDelay for all units after spawning
 	for (auto& unit : unitManager->getUnits()) {
-        unit.moveDelay = 1000000;
+        unit.moveDelay = 50;
 	}
 }
 
