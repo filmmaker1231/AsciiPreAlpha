@@ -29,8 +29,6 @@
     <ClInclude Include="Sdl.h" />
     <ClInclude Include="sdlWindow.h" />
     <ClInclude Include="SearchCell.h" />
-    <ClInclude Include="TileManager.h" />
-    <ClInclude Include="Tiles.h" />
     <ClInclude Include="Unit.h" />
     <ClInclude Include="UnitManager.h" />
     <ClInclude Include="UnitPlacementManager.h" />
@@ -41,19 +39,15 @@
     <ClCompile Include="CellGridExample.cpp" />
     <ClCompile Include="EXAMPLE_USAGE.cpp" />
     <ClCompile Include="FileName.cpp" />
-    <ClCompile Include="TileManager.cpp" />
     <ClCompile Include="GameLoop.cpp" />
     <ClCompile Include="InputHandler.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Pathclick.cpp" />
     <ClCompile Include="Pathfinding.cpp" />
     <ClCompile Include="Sdl.cpp" />
-    <ClCompile Include="Sdl2.cpp" />
     <ClCompile Include="sdlWindow.cpp" />
-    <ClCompile Include="Tiles.cpp" />
     <ClCompile Include="Unit.cpp" />
     <ClCompile Include="UnitManager.cpp" />
-    <ClCompile Include="UnitPlacementManager.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
