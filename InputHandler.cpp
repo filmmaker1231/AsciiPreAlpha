@@ -31,6 +31,13 @@ void handleInput(sdl& app) {
         }
     }
 
+
+	if (fHeld && (mouseButtons & SDL_BUTTON(SDL_BUTTON_LEFT))) {
+		if (app.foodManager) {
+			app.foodManager->spawnFood(mouseX, mouseY, "food");
+		}
+    }
+
     // Path last unit with P + click
     if (pHeld && (mouseButtons & SDL_BUTTON(SDL_BUTTON_LEFT))) {
         if (app.unitManager && app.cellGrid) {

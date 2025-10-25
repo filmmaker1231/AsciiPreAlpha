@@ -3,6 +3,8 @@
 #include "UnitManager.h"
 #include <SDL_ttf.h>
 #include <iostream>
+#include "Food.h"
+
 
 sdl runSdl() {
     sdl state;

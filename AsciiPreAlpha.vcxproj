@@ -21,6 +21,7 @@
   <ItemGroup>
     <ClInclude Include="Actions.h" />
     <ClInclude Include="CellGrid.h" />
+    <ClInclude Include="Food.h" />
     <ClInclude Include="GameLoop.h" />
     <ClInclude Include="InputHandler.h" />
     <ClInclude Include="json.hpp" />
@@ -39,6 +40,7 @@
     <ClCompile Include="CellGridExample.cpp" />
     <ClCompile Include="EXAMPLE_USAGE.cpp" />
     <ClCompile Include="FileName.cpp" />
+    <ClCompile Include="Food.cpp" />
     <ClCompile Include="GameLoop.cpp" />
     <ClCompile Include="InputHandler.cpp" />
     <ClCompile Include="main.cpp" />

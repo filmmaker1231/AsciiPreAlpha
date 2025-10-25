@@ -1,6 +1,7 @@
 #pragma once
 #include <SDL.h>
 #include "CellGrid.h"
+#include "Food.h"
 
 
 class UnitManager; // Forward declaration
