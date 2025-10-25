@@ -1,6 +1,7 @@
 #include "Sdl.h"
 #include "sdlWindow.h"
 #include "UnitManager.h"
+#include "TileManager.h"
 #include <SDL_ttf.h>
 #include <iostream>
 
@@ -24,6 +25,11 @@ sdl runSdl() {
         std::cerr << "Warning: Failed to initialize font for units." << std::endl;
     }
     
+    state.foodManager = new FoodManager();
+    if (!state.foodManager->initializeFont(nullptr, 24)) {
+        std::cerr << "Warning: Failed to initialize font for food." << std::endl;
+    }
+    
     return state;
 }
 
@@ -39,6 +45,9 @@ void sdlDestroyWindow(sdl& app) {
     }
     if (app.unitManager) {
         delete app.unitManager;
+    }
+    if (app.foodManager) {
+        delete app.foodManager;
     }
     TTF_Quit();
     SDL_Quit();
