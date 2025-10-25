@@ -19,9 +19,13 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Actions.h" />
     <ClInclude Include="CellGrid.h" />
     <ClInclude Include="GameLoop.h" />
+    <ClInclude Include="InputHandler.h" />
     <ClInclude Include="json.hpp" />
+    <ClInclude Include="PathClick.h" />
+    <ClInclude Include="Pathfinding.h" />
     <ClInclude Include="Sdl.h" />
     <ClInclude Include="sdlWindow.h" />
     <ClInclude Include="SearchCell.h" />
@@ -36,10 +40,14 @@
     <ClCompile Include="EXAMPLE_USAGE.cpp" />
     <ClCompile Include="FileName.cpp" />
     <ClCompile Include="GameLoop.cpp" />
+    <ClCompile Include="InputHandler.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Pathclick.cpp" />
+    <ClCompile Include="Pathfinding.cpp" />
     <ClCompile Include="Sdl.cpp" />
     <ClCompile Include="Sdl2.cpp" />
     <ClCompile Include="sdlWindow.cpp" />
+    <ClCompile Include="Unit.cpp" />
     <ClCompile Include="UnitManager.cpp" />
     <ClCompile Include="UnitPlacementManager.cpp" />
   </ItemGroup>

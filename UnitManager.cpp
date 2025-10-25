@@ -1,5 +1,6 @@
 #include "UnitManager.h"
 #include <iostream>
+#include "CellGrid.h"
 
 UnitManager::UnitManager() : font(nullptr) {
 }
@@ -34,16 +35,18 @@ bool UnitManager::initializeFont(const char* fontPath, int fontSize) {
 }
 
 void UnitManager::spawnUnit(int x, int y, const std::string& name) {
-    units.emplace_back(x, y, '@', name);
-    std::cout << "Spawned unit '" << name << "' at (" << x << ", " << y << ")" << std::endl;
+    static int nextId = 1; // Static to ensure unique IDs
+    units.emplace_back(x, y, '@', name, 100, nextId++);
+    std::cout << "Spawned unit '" << name << "' at (" << x << ", " << y << ") with id " << (nextId-1) << std::endl;
 }
+
 
 void UnitManager::renderUnits(SDL_Renderer* renderer) {
     if (!font) {
         return;
     }
     
-    SDL_Color color = {255, 255, 255, 255}; // White color
+    SDL_Color color = {255, 255, 0, 255}; // White color
     
     for (const auto& unit : units) {
         // Create surface with the unit symbol
@@ -75,4 +78,26 @@ void initializeGameUnits(UnitManager* unitManager) {
     unitManager->spawnUnit(400, 300, "Guard");
     unitManager->spawnUnit(600, 450, "Merchant");
 }
+
+void UnitManager::renderUnitPaths(SDL_Renderer* renderer, const CellGrid& cellGrid) {
+    SDL_SetRenderDrawColor(renderer, 0, 255, 0, 128); // Green, semi-transparent
+
+    int cellWidth = cellGrid.getWidthInPixels() / cellGrid.getWidthInCells();
+    int cellHeight = cellGrid.getHeightInPixels() / cellGrid.getHeightInCells();
+
+    for (const auto& unit : units) {
+        for (const auto& cell : unit.path) {
+            int px, py;
+            cellGrid.gridToPixel(cell.first, cell.second, px, py);
+            SDL_Rect rect = { px, py, cellWidth, cellHeight };
+            SDL_RenderFillRect(renderer, &rect);
+        }
+    }
+}
+
+
+std::vector<Unit>& UnitManager::getUnits() {
+	return units;
+}
+
 
