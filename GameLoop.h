@@ -1,7 +1,7 @@
 #pragma once
-#include "Sdl.h"
+#include "sdlHeader.h"
 
 // Main event loop
 void runMainLoop(sdl& app);
 
-void renderFoodTiles(sdl& app); 
+void renderFood(sdl& app); 

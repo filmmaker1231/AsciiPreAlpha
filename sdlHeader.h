@@ -7,6 +7,7 @@
 class UnitManager; // Forward declaration
 class FoodManager; // Forward declaration
 
+
 struct sdl {
     SDL_Window* window = nullptr;
     SDL_Renderer* renderer = nullptr;

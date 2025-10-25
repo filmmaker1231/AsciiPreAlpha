@@ -51,6 +51,11 @@ void runMainLoop(sdl& app) {
             app.unitManager->renderUnitPaths(app.renderer, *app.cellGrid);
         }
 
+		if (app.foodManager) {
+			app.foodManager->renderFood(app.renderer);
+			
+		}
+
 		
 
 

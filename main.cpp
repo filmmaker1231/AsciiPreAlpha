@@ -5,7 +5,7 @@
 #include "sdlWindow.h"
 #include "CellGrid.h"
 #include "GameLoop.h"
-#include "Sdl.h"
+#include "sdlHeader.h"
 #include "UnitManager.h"
 
 int main() {

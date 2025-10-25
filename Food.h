@@ -7,7 +7,9 @@
 
 
 
+
 class CellGrid; // Forward declaration
+struct TTF_Font;
 
 class Food {
 public:

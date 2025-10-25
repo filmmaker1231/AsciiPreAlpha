@@ -27,7 +27,7 @@
     <ClInclude Include="json.hpp" />
     <ClInclude Include="PathClick.h" />
     <ClInclude Include="Pathfinding.h" />
-    <ClInclude Include="Sdl.h" />
+    <ClInclude Include="sdlHeader.h" />
     <ClInclude Include="sdlWindow.h" />
     <ClInclude Include="SearchCell.h" />
     <ClInclude Include="Unit.h" />

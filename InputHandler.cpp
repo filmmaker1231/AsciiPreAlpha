@@ -1,7 +1,8 @@
-#include "Sdl.h"
+#include "sdlHeader.h"
 #include "UnitManager.h"
 #include "InputHandler.h"
 #include "Pathfinding.h"
+#include "Food.h"
 
 // Pass sdl& app as a parameter
  // Make sure to include your pathfinding header
