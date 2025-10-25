@@ -45,6 +45,24 @@
     <ClInclude Include="UnitPlacementManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Actions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="InputHandler.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="PathClick.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Pathfinding.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Tiles.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="TileManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CellGrid.cpp">
@@ -78,6 +96,24 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="UnitPlacementManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="InputHandler.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Pathclick.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Pathfinding.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Unit.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Tiles.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="TileManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

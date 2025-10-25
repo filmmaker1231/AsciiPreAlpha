@@ -5,3 +5,5 @@
 
 // Main event loop
 void runMainLoop(sdl& app);
+
+void renderFoodTiles(sdl& app); 

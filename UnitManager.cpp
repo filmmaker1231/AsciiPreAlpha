@@ -102,7 +102,11 @@ void UnitManager::renderUnitPaths(SDL_Renderer* renderer, const CellGrid& cellGr
 
 
 std::vector<Unit>& UnitManager::getUnits() {
-	return units;
+    return foods;
+}
+
+const std::vector<Food>& UnitManager::getUnits() const {
+    return foods;
 }
 
 

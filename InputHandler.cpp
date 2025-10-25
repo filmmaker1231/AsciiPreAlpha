@@ -5,6 +5,7 @@
 #include "UnitManager.h"
 #include "InputHandler.h"
 #include "Pathfinding.h"
+#include "Tiles.h"
 
 // Pass sdl& app as a parameter
  // Make sure to include your pathfinding header
@@ -12,11 +13,25 @@
 void handleInput(sdl& app) {
     const Uint8* keyState = SDL_GetKeyboardState(nullptr);
 
+
+	bool fHeld = keyState[SDL_SCANCODE_F];
     bool uHeld = keyState[SDL_SCANCODE_U];
     bool pHeld = keyState[SDL_SCANCODE_P];
 
     int mouseX, mouseY;
     Uint32 mouseButtons = SDL_GetMouseState(&mouseX, &mouseY);
+
+	
+
+
+    
+	// Spawn food
+	if (fHeld && (mouseButtons & SDL_BUTTON(SDL_BUTTON_LEFT))) {
+		if (app.unitManager) {
+			app.unitManager->spawnUnit(mouseX, mouseY, "food");
+		}
+	}
+
 
     // Spawn unit with U + click
     if (uHeld && (mouseButtons & SDL_BUTTON(SDL_BUTTON_LEFT))) {
@@ -54,4 +69,8 @@ void handleInput(sdl& app) {
 
 
 }
+
+
+
+
 

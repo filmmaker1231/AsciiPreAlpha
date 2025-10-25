@@ -5,6 +5,13 @@
 #include "PathClick.h"
 #include "Actions.h"
 #include "Unit.h"
+#include "Tiles.h"
+#include <vector>
+#include "TileManager.h"
+
+
+
+
 
 void runMainLoop(sdl& app) {
     bool running = true;
@@ -38,11 +45,21 @@ void runMainLoop(sdl& app) {
         SDL_SetRenderDrawColor(app.renderer, 0, 0, 0, 255);
         SDL_RenderClear(app.renderer);
         renderCellGrid(app.renderer, *app.cellGrid, app.showCellGrid);
+		
         if (app.unitManager) {
             app.unitManager->renderUnits(app.renderer);
             app.unitManager->renderUnitPaths(app.renderer, *app.cellGrid);
         }
+
+		if (app.foodManager) {
+			app.foodManager->renderFood(app.renderer);
+			
+		}
+
+
         SDL_RenderPresent(app.renderer);
         SDL_Delay(16); // ~60 FPS
     }
 }
+
+
