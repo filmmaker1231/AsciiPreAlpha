@@ -83,7 +83,11 @@ void Unit::processAction(CellGrid& cellGrid) {
     }
     case ActionType::Eat:
         // ... eat logic ...
+        actionQueue.pop();
         break;
-    // Add more cases as needed
+    default:
+        // Handle unknown action types
+        actionQueue.pop();
+        break;
     }
 }
