@@ -25,6 +25,23 @@ void Unit::addAction(const Action& action) {
 }
 
 void Unit::processAction(CellGrid& cellGrid) {
+    // First, handle any path movement (works with or without actions)
+    // This allows manually-assigned paths (e.g., via P+click) to be followed
+    if (!path.empty()) {
+        unsigned int currentTime = SDL_GetTicks();
+        // Only move if enough time has passed since last move, or if this is the first move
+        if (lastMoveTime == 0 || currentTime - lastMoveTime >= moveDelay) {
+            auto [nextGridX, nextGridY] = path.front();
+            int nextPixelX, nextPixelY;
+            cellGrid.gridToPixel(nextGridX, nextGridY, nextPixelX, nextPixelY);
+            x = nextPixelX;
+            y = nextPixelY;
+            path.erase(path.begin());
+            lastMoveTime = currentTime;
+        }
+    }
+
+    // Then process any queued actions
     if (actionQueue.empty()) return;
     Action current = actionQueue.top();
 
@@ -52,21 +69,6 @@ void Unit::processAction(CellGrid& cellGrid) {
                         break;
                     }
                 }
-            }
-        }
-
-        // Move along the path if there is one
-        if (!path.empty()) {
-            unsigned int currentTime = SDL_GetTicks();
-            // Only move if enough time has passed since last move, or if this is the first move
-            if (lastMoveTime == 0 || currentTime - lastMoveTime >= moveDelay) {
-                auto [nextGridX, nextGridY] = path.front();
-                int nextPixelX, nextPixelY;
-                cellGrid.gridToPixel(nextGridX, nextGridY, nextPixelX, nextPixelY);
-                x = nextPixelX;
-                y = nextPixelY;
-                path.erase(path.begin());
-                lastMoveTime = currentTime;
             }
         }
 
