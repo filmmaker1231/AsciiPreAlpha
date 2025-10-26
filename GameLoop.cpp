@@ -36,7 +36,18 @@ void runMainLoop(sdl& app) {
         // Process units
         for (auto& unit : app.unitManager->getUnits()) {
 
-
+			// --- UPDATE CARRIED FOOD POSITION ---
+			// If unit is carrying food, update the food's position to follow the unit
+			if (unit.carriedFoodId != -1 && app.foodManager) {
+				auto& foods = app.foodManager->getFood();
+				auto it = std::find_if(foods.begin(), foods.end(), [&](const Food& food) {
+					return food.foodId == unit.carriedFoodId;
+				});
+				if (it != foods.end()) {
+					it->x = unit.x;
+					it->y = unit.y;
+				}
+			}
 
 			// --- AUTO BRING FOOD TO HOUSE LOGIC ---
 // Only if the unit is not already bringing food, and house is not full
@@ -48,13 +59,23 @@ void runMainLoop(sdl& app) {
 				}
 			}
 
-			// Only try to bring food if there is food available
+			// Only try to bring food if there is food available (and not carried by anyone)
 			if (!alreadyBringingFood && g_HouseManager && app.foodManager && !app.foodManager->getFood().empty()) {
 				for (auto& house : g_HouseManager->houses) {
 					if (house.ownerUnitId == unit.id &&
 						house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
 						if (house.hasSpace()) {
-							unit.bringItemToHouse("food");
+							// Check if there's any free food in the world
+							bool hasFreeFood = false;
+							for (const auto& food : app.foodManager->getFood()) {
+								if (food.carriedByUnitId == -1 && food.ownedByHouseId == -1) {
+									hasFreeFood = true;
+									break;
+								}
+							}
+							if (hasFreeFood) {
+								unit.bringItemToHouse("food");
+							}
 						}
 						break;
 					}
@@ -157,9 +178,9 @@ void runMainLoop(sdl& app) {
         renderCellGrid(app.renderer, *app.cellGrid, app.showCellGrid);
 
 		// --- RENDER HOUSES ---
-		// Render house tiles first, then items on top to ensure items are always visible
+		// Render house tiles (brown background)
+		// Food items inside houses are rendered by the FoodManager in its own pass
 		if (g_HouseManager) {
-			// First pass: Draw all house tiles (brown background)
 			SDL_SetRenderDrawColor(app.renderer, 139, 69, 19, 255); // Brown
 			for (const auto& s : g_HouseManager->houses) {
 				for (int dx = 0; dx < 3; ++dx) {
@@ -168,34 +189,6 @@ void runMainLoop(sdl& app) {
 						app.cellGrid->gridToPixel(s.gridX + dx, s.gridY + dy, px, py);
 						SDL_Rect rect = { px, py, GRID_SIZE, GRID_SIZE };
 						SDL_RenderFillRect(app.renderer, &rect);
-					}
-				}
-			}
-
-			// Second pass: Draw all stored items on top of house tiles
-			// This ensures food items are always visible above the house structure
-			for (const auto& s : g_HouseManager->houses) {
-				for (int dx = 0; dx < 3; ++dx) {
-					for (int dy = 0; dy < 3; ++dy) {
-						if (!s.items[dx][dy].empty()) {
-							int px, py;
-							app.cellGrid->gridToPixel(s.gridX + dx, s.gridY + dy, px, py);
-							
-							// For food, draw a more visible indicator
-							if (s.items[dx][dy] == "food") {
-								SDL_SetRenderDrawColor(app.renderer, 255, 255, 0, 255); // Yellow for better visibility
-								// Draw a larger filled rect to make food more visible
-								SDL_Rect itemRect = { px + GRID_SIZE / 6, py + GRID_SIZE / 6, 
-													 (GRID_SIZE * 2) / 3, (GRID_SIZE * 2) / 3 };
-								SDL_RenderFillRect(app.renderer, &itemRect);
-							} else {
-								// Other items - red
-								SDL_SetRenderDrawColor(app.renderer, 255, 0, 0, 255);
-								SDL_Rect itemRect = { px + GRID_SIZE / 4, py + GRID_SIZE / 4, 
-													 GRID_SIZE / 2, GRID_SIZE / 2 };
-								SDL_RenderFillRect(app.renderer, &itemRect);
-							}
-						}
 					}
 				}
 			}

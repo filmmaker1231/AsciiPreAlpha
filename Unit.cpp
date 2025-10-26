@@ -16,6 +16,10 @@ static int findClosestFoodIndex(const Unit& unit, const std::vector<Food>& foods
     int minDist = std::numeric_limits<int>::max();
     int closestIdx = -1;
     for (size_t i = 0; i < foods.size(); ++i) {
+        // Only consider food that is not carried and not owned by any house
+        if (foods[i].carriedByUnitId != -1 || foods[i].ownedByHouseId != -1) {
+            continue;
+        }
         int fx, fy;
         cellGrid.pixelToGrid(foods[i].x, foods[i].y, fx, fy);
         int dist = abs(fx - unitGridX) + abs(fy - unitGridY);
@@ -110,11 +114,11 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods) {
 		int gridX, gridY;
 		cellGrid.pixelToGrid(x, y, gridX, gridY);
 
-		// Find food at this location
+		// Find food at this location (only free food, not carried or owned)
 		auto it = std::find_if(foods.begin(), foods.end(), [&](const Food& food) {
 			int fx, fy;
 			cellGrid.pixelToGrid(food.x, food.y, fx, fy);
-			return fx == gridX && fy == gridY;
+			return fx == gridX && fy == gridY && food.carriedByUnitId == -1 && food.ownedByHouseId == -1;
 			});
 
 		if (it != foods.end()) {
@@ -154,8 +158,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods) {
     // Only support "food" for now, but extensible
     if (current.itemType == "food") {
         // 1. If not carrying food, path to closest food
-        auto itInInventory = std::find(inventory.begin(), inventory.end(), "food");
-        if (itInInventory == inventory.end()) {
+        if (carriedFoodId == -1) {
             // Not carrying food
             int foodGridX = -1, foodGridY = -1;
             int closestIdx = findClosestFoodIndex(*this, foods, cellGrid, foodGridX, foodGridY);
@@ -174,16 +177,17 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods) {
                 }
                 break;
             }
-            // At food, pick it up
+            // At food, pick it up (don't delete, just mark as carried)
             auto it = std::find_if(foods.begin(), foods.end(), [&](const Food& food) {
                 int fx, fy;
                 cellGrid.pixelToGrid(food.x, food.y, fx, fy);
-                return fx == foodGridX && fy == foodGridY;
+                return fx == foodGridX && fy == foodGridY && food.carriedByUnitId == -1;
             });
             if (it != foods.end()) {
-                inventory.push_back("food");
-                foods.erase(it);
-                std::cout << "Unit " << name << " picked up food to bring home.\n";
+                carriedFoodId = it->foodId;
+                it->carriedByUnitId = id;
+                inventory.push_back("food"); // Keep for backward compatibility
+                std::cout << "Unit " << name << " picked up food (id " << it->foodId << ") to bring home.\n";
             } else {
                 // Food was taken by someone else
                 actionQueue.pop();
@@ -213,12 +217,31 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods) {
                 }
             }
         }
-        if (myHouse && myHouse->hasSpace()) {
-            auto it = std::find(inventory.begin(), inventory.end(), "food");
-            if (it != inventory.end()) {
-                if (myHouse->addItem("food")) {
-                    inventory.erase(it);
-                    std::cout << "Unit " << name << " delivered food to house storage.\n";
+        if (myHouse && myHouse->hasSpace() && carriedFoodId != -1) {
+            // Find the food object and mark it as owned by house
+            auto it = std::find_if(foods.begin(), foods.end(), [&](const Food& food) {
+                return food.foodId == carriedFoodId;
+            });
+            if (it != foods.end()) {
+                if (myHouse->addFood(carriedFoodId)) {
+                    it->carriedByUnitId = -1;
+                    it->ownedByHouseId = id; // Mark as owned by this house
+                    // Position food in house storage (use first empty slot position)
+                    for (int dx = 0; dx < 3; ++dx) {
+                        for (int dy = 0; dy < 3; ++dy) {
+                            if (myHouse->foodIds[dx][dy] == carriedFoodId) {
+                                cellGrid.gridToPixel(houseGridX + dx, houseGridY + dy, it->x, it->y);
+                                goto food_positioned;
+                            }
+                        }
+                    }
+                    food_positioned:
+                    carriedFoodId = -1;
+                    auto invIt = std::find(inventory.begin(), inventory.end(), "food");
+                    if (invIt != inventory.end()) {
+                        inventory.erase(invIt);
+                    }
+                    std::cout << "Unit " << name << " delivered food (id " << it->foodId << ") to house storage.\n";
                 }
             }
         } else {
@@ -257,10 +280,19 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods) {
 			}
 		}
 
-		if (myHouse && myHouse->hasItem("food")) {
-			if (myHouse->removeItem("food")) {
-				hunger = 100;
-				std::cout << "Unit " << name << " (id " << id << ") ate food from house storage\n";
+		if (myHouse && myHouse->hasFood()) {
+			int foodId = myHouse->getFirstFoodId();
+			if (foodId != -1) {
+				// Find and remove the food from world
+				auto it = std::find_if(foods.begin(), foods.end(), [&](const Food& food) {
+					return food.foodId == foodId;
+				});
+				if (it != foods.end()) {
+					hunger = 100;
+					myHouse->removeFoodById(foodId);
+					foods.erase(it); // Now we actually delete the food when eaten
+					std::cout << "Unit " << name << " (id " << id << ") ate food (id " << foodId << ") from house storage\n";
+				}
 			}
 		} else {
 			std::cout << "Unit " << name << " tried to eat from house but no food available\n";
@@ -288,6 +320,10 @@ void Unit::tryFindAndPathToFood(CellGrid& cellGrid, std::vector<Food>& foods) {
     int foodGridX = 0, foodGridY = 0;
 
     for (size_t i = 0; i < foods.size(); ++i) {
+        // Only consider food that is not carried and not owned by any house
+        if (foods[i].carriedByUnitId != -1 || foods[i].ownedByHouseId != -1) {
+            continue;
+        }
         int fx, fy;
         cellGrid.pixelToGrid(foods[i].x, foods[i].y, fx, fy);
         int dist = abs(fx - gridX) + abs(fy - gridY);
