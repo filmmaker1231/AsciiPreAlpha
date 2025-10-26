@@ -72,6 +72,27 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
             y = nextPixelY;
             path.erase(path.begin());
             lastMoveTime = currentTime;
+            
+            // Update carried item positions immediately after moving
+            if (carriedFoodId != -1) {
+                auto it = std::find_if(foods.begin(), foods.end(), [&](const Food& food) {
+                    return food.foodId == carriedFoodId;
+                });
+                if (it != foods.end()) {
+                    it->x = x;
+                    it->y = y;
+                }
+            }
+            
+            if (carriedSeedId != -1) {
+                auto it = std::find_if(seeds.begin(), seeds.end(), [&](const Seed& seed) {
+                    return seed.seedId == carriedSeedId;
+                });
+                if (it != seeds.end()) {
+                    it->x = x;
+                    it->y = y;
+                }
+            }
         }
     }
 

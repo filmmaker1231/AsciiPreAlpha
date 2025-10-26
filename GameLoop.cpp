@@ -36,32 +36,6 @@ void runMainLoop(sdl& app) {
         // Process units
         for (auto& unit : app.unitManager->getUnits()) {
 
-			// --- UPDATE CARRIED FOOD POSITION ---
-			// If unit is carrying food, update the food's position to follow the unit
-			if (unit.carriedFoodId != -1 && app.foodManager) {
-				auto& foods = app.foodManager->getFood();
-				auto it = std::find_if(foods.begin(), foods.end(), [&](const Food& food) {
-					return food.foodId == unit.carriedFoodId;
-				});
-				if (it != foods.end()) {
-					it->x = unit.x;
-					it->y = unit.y;
-				}
-			}
-
-			// --- UPDATE CARRIED SEED POSITION ---
-			// If unit is carrying seed, update the seed's position to follow the unit
-			if (unit.carriedSeedId != -1 && app.seedManager) {
-				auto& seeds = app.seedManager->getSeeds();
-				auto it = std::find_if(seeds.begin(), seeds.end(), [&](const Seed& seed) {
-					return seed.seedId == unit.carriedSeedId;
-				});
-				if (it != seeds.end()) {
-					it->x = unit.x;
-					it->y = unit.y;
-				}
-			}
-
 			// --- AUTO BRING FOOD TO HOUSE LOGIC ---
 // Only if the unit is not already bringing food, and house is not full
 			bool alreadyBringingFood = false;
