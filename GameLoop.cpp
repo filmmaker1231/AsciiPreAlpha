@@ -389,10 +389,10 @@ void runMainLoop(sdl& app) {
 							std::cout << unit.name << " has hit " << thiefUnit->name 
 							          << " for 10 damage for stealing from them!" << std::endl;
 							
-							// Clear the stolen from tracking after the hit
+							// Clear the stolen from tracking after the hit (but stay clamped)
 							unit.stolenFromByUnitId = -1;
 							unit.fightingTargetId = -1;
-							unit.isClamped = false;
+							// Speed will be restored when unclamped
 						}
 						
 						// Update path to thief if not clamped
@@ -405,11 +405,17 @@ void runMainLoop(sdl& app) {
 								unit.moveDelay = 30; // Faster than normal (normal is 50)
 							}
 						}
+					} else {
+						// Thief too far away, give up chase and restore normal speed
+						unit.stolenFromByUnitId = -1;
+						unit.fightingTargetId = -1;
+						unit.moveDelay = 50;
 					}
 				} else {
-					// Thief not found (might have been deleted), clear tracking
+					// Thief not found (might have been deleted), clear tracking and restore speed
 					unit.stolenFromByUnitId = -1;
 					unit.fightingTargetId = -1;
+					unit.moveDelay = 50;
 				}
 			}
 			
