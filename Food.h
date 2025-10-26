@@ -41,6 +41,9 @@ public:
 
     // Render all units
     void renderFood(SDL_Renderer* renderer);
+    
+    // Render a single food symbol at given position
+    void renderFoodSymbol(SDL_Renderer* renderer, int x, int y);
 
     
     std::vector<Food>& getFood();
