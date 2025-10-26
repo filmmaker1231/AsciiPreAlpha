@@ -157,21 +157,30 @@ void runMainLoop(sdl& app) {
         renderCellGrid(app.renderer, *app.cellGrid, app.showCellGrid);
 
 		// --- RENDER HOUSES ---
-		// --- RENDER HOUSES ---
+		// Render house tiles first, then items on top to ensure items are always visible
 		if (g_HouseManager) {
+			// First pass: Draw all house tiles (brown background)
 			SDL_SetRenderDrawColor(app.renderer, 139, 69, 19, 255); // Brown
-
 			for (const auto& s : g_HouseManager->houses) {
-				// Draw house tiles
 				for (int dx = 0; dx < 3; ++dx) {
 					for (int dy = 0; dy < 3; ++dy) {
 						int px, py;
 						app.cellGrid->gridToPixel(s.gridX + dx, s.gridY + dy, px, py);
 						SDL_Rect rect = { px, py, GRID_SIZE, GRID_SIZE };
 						SDL_RenderFillRect(app.renderer, &rect);
+					}
+				}
+			}
 
-						// Draw stored item if present
+			// Second pass: Draw all stored items on top of house tiles
+			// This ensures food items are always visible above the house structure
+			for (const auto& s : g_HouseManager->houses) {
+				for (int dx = 0; dx < 3; ++dx) {
+					for (int dy = 0; dy < 3; ++dy) {
 						if (!s.items[dx][dy].empty()) {
+							int px, py;
+							app.cellGrid->gridToPixel(s.gridX + dx, s.gridY + dy, px, py);
+							
 							// For food, draw a more visible indicator
 							if (s.items[dx][dy] == "food") {
 								SDL_SetRenderDrawColor(app.renderer, 255, 255, 0, 255); // Yellow for better visibility
@@ -186,7 +195,6 @@ void runMainLoop(sdl& app) {
 													 GRID_SIZE / 2, GRID_SIZE / 2 };
 								SDL_RenderFillRect(app.renderer, &itemRect);
 							}
-							SDL_SetRenderDrawColor(app.renderer, 139, 69, 19, 255); // Reset to house color
 						}
 					}
 				}
@@ -199,9 +207,8 @@ void runMainLoop(sdl& app) {
             app.unitManager->renderUnitPaths(app.renderer, *app.cellGrid);
         }
 
-        
-
-        // Render food
+        // Render food (world food items with 'f' symbols)
+        // This is rendered AFTER houses and units to ensure food is always visible on top
         if (app.foodManager) {
             app.foodManager->renderFood(app.renderer);
         }
