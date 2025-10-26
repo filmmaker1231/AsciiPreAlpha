@@ -19,6 +19,7 @@ void handleInput(sdl& app) {
 	bool fHeld = keyState[SDL_SCANCODE_F];
     bool uHeld = keyState[SDL_SCANCODE_U];
     bool pHeld = keyState[SDL_SCANCODE_P];
+    bool dHeld = keyState[SDL_SCANCODE_D];
 
     int mouseX, mouseY;
     Uint32 mouseButtons = SDL_GetMouseState(&mouseX, &mouseY);
@@ -69,6 +70,20 @@ void handleInput(sdl& app) {
                 // Assign path to unit
                 unit.path = path;
             }
+        }
+    }
+
+    // Delete unit or food with D + click
+    if (dHeld && (mouseButtons & SDL_BUTTON(SDL_BUTTON_LEFT))) {
+        // Try to delete a unit first
+        bool deletedUnit = false;
+        if (app.unitManager) {
+            deletedUnit = app.unitManager->deleteUnitAt(mouseX, mouseY);
+        }
+        
+        // If no unit was deleted, try to delete food
+        if (!deletedUnit && app.foodManager) {
+            app.foodManager->deleteFoodAt(mouseX, mouseY);
         }
     }
 

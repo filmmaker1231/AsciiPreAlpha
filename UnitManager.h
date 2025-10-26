@@ -21,6 +21,8 @@ public:
     // Spawn a unit with @ symbol at given position
     void spawnUnit(int x, int y, const std::string& name, CellGrid* cellGrid);
 
+    // Delete unit at given pixel position (returns true if unit was deleted)
+    bool deleteUnitAt(int x, int y);
 
     // Render all units
     void renderUnits(SDL_Renderer* renderer);

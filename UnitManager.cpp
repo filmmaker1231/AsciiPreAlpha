@@ -71,6 +71,38 @@ void UnitManager::spawnUnit(int x, int y, const std::string& name, CellGrid* cel
 
 }
 
+bool UnitManager::deleteUnitAt(int x, int y) {
+    // Use a larger click area to make it easier to select units
+    // Assuming characters are roughly 20x20 pixels (this can be adjusted)
+    const int clickRadius = 20;
+    
+    for (auto it = units.begin(); it != units.end(); ++it) {
+        // Check if click is within the unit's bounding box
+        if (x >= it->x - clickRadius && x <= it->x + clickRadius &&
+            y >= it->y - clickRadius && y <= it->y + clickRadius) {
+            std::cout << "Deleted unit '" << it->name << "' (id " << it->id << ") at (" << it->x << ", " << it->y << ")" << std::endl;
+            
+            // Clean up any references to this unit before deletion
+            int deletedId = it->id;
+            
+            // Clear any theft tracking involving this unit
+            for (auto& otherUnit : units) {
+                if (otherUnit.stolenFromByUnitId == deletedId) {
+                    otherUnit.stolenFromByUnitId = -1;
+                    otherUnit.fightingTargetId = -1;
+                }
+                if (otherUnit.fightingTargetId == deletedId) {
+                    otherUnit.fightingTargetId = -1;
+                }
+            }
+            
+            units.erase(it);
+            return true;
+        }
+    }
+    return false;
+}
+
 
 void UnitManager::renderUnits(SDL_Renderer* renderer) {
     if (!font) {
