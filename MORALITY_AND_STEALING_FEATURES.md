@@ -50,8 +50,9 @@ Where:
 
 Additional debug messages are printed for seed drops:
 ```
-Dropped seed SEED_ID in house at (X, Y) owned by unit OWNER_ID
+Dropped seed {SEED_ID} in house at (X, Y) owned by unit {OWNER_ID}
 ```
+Note: The values in braces `{}` are placeholders that will be replaced with actual values at runtime.
 
 ## Action Priority System
 
@@ -115,6 +116,6 @@ Higher priority actions interrupt lower priority actions.
 
 ## Known Behavior
 - Units prioritize eating from their own house over stealing (when they have one with food)
-- Stealing only occurs when morality is very low (< 10) AND hunger is critical (<= 30)
+- Stealing only occurs when BOTH morality is very low (< 10) AND hunger is critical (<= 30)
 - Seeds from stolen food still belong to the house owner, maintaining property rights
 - The stealer does not gain ownership of dropped seeds
