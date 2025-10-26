@@ -116,6 +116,7 @@ void runMainLoop(sdl& app) {
             // If hungry and not already seeking food, try to find food from world
             // Only check this periodically to optimize performance
             // Skip if unit is trying to eat from house (hunger < 50 and house has food)
+            // Note: hunger <= 99 allows units to proactively gather food even when only slightly hungry
             if ((frameCounter % HUNGER_CHECK_FRAMES == 0) && unit.hunger <= 99 && !tryingToEatFromHouse) {
                 bool alreadySeekingFood = false;
                 if (!unit.actionQueue.empty()) {
