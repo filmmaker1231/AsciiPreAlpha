@@ -36,6 +36,9 @@ public:
 	  void bringItemToHouse(const std::string& itemType) {
 		  addAction(Action(ActionType::BringItemToHouse, 5, itemType));
 	  }
+	  void eatFromHouse() {
+		  addAction(Action(ActionType::EatFromHouse, 8));
+	  }
 
 	
 

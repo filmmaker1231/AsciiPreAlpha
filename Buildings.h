@@ -39,6 +39,28 @@ struct House {
 					return true;
 		return false;
 	}
+
+	// Returns true if item was removed, false if not found
+	bool removeItem(const std::string& itemType) {
+		for (int dx = 0; dx < 3; ++dx) {
+			for (int dy = 0; dy < 3; ++dy) {
+				if (items[dx][dy] == itemType) {
+					items[dx][dy] = "";
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	// Returns true if house has at least one item of given type
+	bool hasItem(const std::string& itemType) const {
+		for (int dx = 0; dx < 3; ++dx)
+			for (int dy = 0; dy < 3; ++dy)
+				if (items[dx][dy] == itemType)
+					return true;
+		return false;
+	}
 };
 
 class HouseManager {

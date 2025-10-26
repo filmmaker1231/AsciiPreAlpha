@@ -85,11 +85,39 @@ void runMainLoop(sdl& app) {
 
 
 
+			// --- EAT FROM HOUSE LOGIC ---
+			// If hunger is below 50, try to eat from house storage first
+			bool tryingToEatFromHouse = false;
+			if ((frameCounter % HUNGER_CHECK_FRAMES == 0) && unit.hunger < 50) {
+				bool alreadyEatingFromHouse = false;
+				if (!unit.actionQueue.empty()) {
+					Action current = unit.actionQueue.top();
+					if (current.type == ActionType::EatFromHouse) {
+						alreadyEatingFromHouse = true;
+					}
+				}
+				if (!alreadyEatingFromHouse && g_HouseManager) {
+					// Check if unit has a house with food
+					for (auto& house : g_HouseManager->houses) {
+						if (house.ownerUnitId == unit.id &&
+							house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
+							if (house.hasItem("food")) {
+								unit.eatFromHouse();
+								tryingToEatFromHouse = true;
+							}
+							break;
+						}
+					}
+				}
+			}
 
 
-            // If hungry and not already seeking food, try to find food
+
+            // If hungry and not already seeking food, try to find food from world
             // Only check this periodically to optimize performance
-            if ((frameCounter % HUNGER_CHECK_FRAMES == 0) && unit.hunger <= 99) {
+            // Skip if unit is trying to eat from house (hunger < 50 and house has food)
+            // Note: hunger <= 99 allows units to proactively gather food even when only slightly hungry
+            if ((frameCounter % HUNGER_CHECK_FRAMES == 0) && unit.hunger <= 99 && !tryingToEatFromHouse) {
                 bool alreadySeekingFood = false;
                 if (!unit.actionQueue.empty()) {
                     Action current = unit.actionQueue.top();
@@ -144,11 +172,20 @@ void runMainLoop(sdl& app) {
 
 						// Draw stored item if present
 						if (!s.items[dx][dy].empty()) {
-							// For food, draw a red circle or a simple 'F'
-							SDL_SetRenderDrawColor(app.renderer, 255, 0, 0, 255); // Red for food
-							// Draw a small filled rect as a placeholder for the item
-							SDL_Rect itemRect = { px + GRID_SIZE / 4, py + GRID_SIZE / 4, GRID_SIZE / 2, GRID_SIZE / 2 };
-							SDL_RenderFillRect(app.renderer, &itemRect);
+							// For food, draw a more visible indicator
+							if (s.items[dx][dy] == "food") {
+								SDL_SetRenderDrawColor(app.renderer, 255, 255, 0, 255); // Yellow for better visibility
+								// Draw a larger filled rect to make food more visible
+								SDL_Rect itemRect = { px + GRID_SIZE / 6, py + GRID_SIZE / 6, 
+													 (GRID_SIZE * 2) / 3, (GRID_SIZE * 2) / 3 };
+								SDL_RenderFillRect(app.renderer, &itemRect);
+							} else {
+								// Other items - red
+								SDL_SetRenderDrawColor(app.renderer, 255, 0, 0, 255);
+								SDL_Rect itemRect = { px + GRID_SIZE / 4, py + GRID_SIZE / 4, 
+													 GRID_SIZE / 2, GRID_SIZE / 2 };
+								SDL_RenderFillRect(app.renderer, &itemRect);
+							}
 							SDL_SetRenderDrawColor(app.renderer, 139, 69, 19, 255); // Reset to house color
 						}
 					}

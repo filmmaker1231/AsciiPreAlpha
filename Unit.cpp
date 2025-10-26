@@ -231,6 +231,43 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods) {
     }
     break;
 }
+	case ActionType::EatFromHouse: {
+		// Navigate to house and eat food from storage
+		int unitGridX, unitGridY;
+		cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+
+		// First, navigate to house if not there
+		if (unitGridX != houseGridX || unitGridY != houseGridY) {
+			if (path.empty()) {
+				auto newPath = aStarFindPath(unitGridX, unitGridY, houseGridX, houseGridY, cellGrid);
+				if (!newPath.empty()) path = newPath;
+			}
+			break;
+		}
+
+		// At house, try to eat food from storage
+		House* myHouse = nullptr;
+		if (g_HouseManager) {
+			for (auto& house : g_HouseManager->houses) {
+				if (house.ownerUnitId == id &&
+					house.gridX == houseGridX && house.gridY == houseGridY) {
+					myHouse = &house;
+					break;
+				}
+			}
+		}
+
+		if (myHouse && myHouse->hasItem("food")) {
+			if (myHouse->removeItem("food")) {
+				hunger = 100;
+				std::cout << "Unit " << name << " (id " << id << ") ate food from house storage\n";
+			}
+		} else {
+			std::cout << "Unit " << name << " tried to eat from house but no food available\n";
+		}
+		actionQueue.pop();
+		break;
+	}
 
 
 	default:
