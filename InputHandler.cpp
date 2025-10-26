@@ -78,12 +78,67 @@ void handleInput(sdl& app) {
         // Try to delete a unit first
         bool deletedUnit = false;
         if (app.unitManager) {
+            // First, find if there's a unit at this location and get its carried items
+            int carriedFoodId = -1;
+            int carriedSeedId = -1;
+            const int clickRadius = 20;
+            for (const auto& unit : app.unitManager->getUnits()) {
+                if (mouseX >= unit.x - clickRadius && mouseX <= unit.x + clickRadius &&
+                    mouseY >= unit.y - clickRadius && mouseY <= unit.y + clickRadius) {
+                    carriedFoodId = unit.carriedFoodId;
+                    carriedSeedId = unit.carriedSeedId;
+                    break;
+                }
+            }
+            
+            // Delete the unit
             deletedUnit = app.unitManager->deleteUnitAt(mouseX, mouseY);
+            
+            // Clear carried items from food/seed managers
+            if (deletedUnit) {
+                if (carriedFoodId != -1 && app.foodManager) {
+                    for (auto& foodItem : app.foodManager->getFood()) {
+                        if (foodItem.foodId == carriedFoodId) {
+                            foodItem.carriedByUnitId = -1;
+                            break;
+                        }
+                    }
+                }
+                if (carriedSeedId != -1 && app.seedManager) {
+                    for (auto& seedItem : app.seedManager->getSeeds()) {
+                        if (seedItem.seedId == carriedSeedId) {
+                            seedItem.carriedByUnitId = -1;
+                            break;
+                        }
+                    }
+                }
+            }
         }
         
         // If no unit was deleted, try to delete food
         if (!deletedUnit && app.foodManager) {
-            app.foodManager->deleteFoodAt(mouseX, mouseY);
+            // First, find if there's food at this location and get its ID
+            int deletedFoodId = -1;
+            const int clickRadius = 20;
+            for (const auto& foodItem : app.foodManager->getFood()) {
+                if (mouseX >= foodItem.x - clickRadius && mouseX <= foodItem.x + clickRadius &&
+                    mouseY >= foodItem.y - clickRadius && mouseY <= foodItem.y + clickRadius) {
+                    deletedFoodId = foodItem.foodId;
+                    break;
+                }
+            }
+            
+            // Delete the food
+            if (app.foodManager->deleteFoodAt(mouseX, mouseY)) {
+                // Clear any unit carrying this food
+                if (deletedFoodId != -1 && app.unitManager) {
+                    for (auto& unit : app.unitManager->getUnits()) {
+                        if (unit.carriedFoodId == deletedFoodId) {
+                            unit.carriedFoodId = -1;
+                        }
+                    }
+                }
+            }
         }
     }
 
