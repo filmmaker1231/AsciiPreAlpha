@@ -177,23 +177,28 @@ void runMainLoop(sdl& app) {
 			for (const auto& s : g_HouseManager->houses) {
 				for (int dx = 0; dx < 3; ++dx) {
 					for (int dy = 0; dy < 3; ++dy) {
-						if (!s.items[dx][dy].empty()) {
+						if (!s.items[dx][dy].type.empty()) {
 							int px, py;
 							app.cellGrid->gridToPixel(s.gridX + dx, s.gridY + dy, px, py);
-							
-							// For food, draw a more visible indicator
-							if (s.items[dx][dy] == "food") {
-								SDL_SetRenderDrawColor(app.renderer, 255, 255, 0, 255); // Yellow for better visibility
-								// Draw a larger filled rect to make food more visible
-								SDL_Rect itemRect = { px + GRID_SIZE / 6, py + GRID_SIZE / 6, 
-													 (GRID_SIZE * 2) / 3, (GRID_SIZE * 2) / 3 };
-								SDL_RenderFillRect(app.renderer, &itemRect);
-							} else {
-								// Other items - red
-								SDL_SetRenderDrawColor(app.renderer, 255, 0, 0, 255);
-								SDL_Rect itemRect = { px + GRID_SIZE / 4, py + GRID_SIZE / 4, 
-													 GRID_SIZE / 2, GRID_SIZE / 2 };
-								SDL_RenderFillRect(app.renderer, &itemRect);
+
+							// Render the item's symbol using TTF (if you want ASCII, see below)
+							char symbol = s.items[dx][dy].symbol;
+							std::string symbolStr(1, symbol);
+
+							TTF_Font* font = app.foodManager ? app.foodManager->getFont() : nullptr;
+
+							if (font) {
+								SDL_Color color = { 255, 255, 0, 255 }; // Yellow for food, or choose based on type
+								SDL_Surface* surface = TTF_RenderText_Solid(font, symbolStr.c_str(), color);
+								if (surface) {
+									SDL_Texture* texture = SDL_CreateTextureFromSurface(app.renderer, surface);
+									if (texture) {
+										SDL_Rect dstRect = { px, py, surface->w, surface->h };
+										SDL_RenderCopy(app.renderer, texture, nullptr, &dstRect);
+										SDL_DestroyTexture(texture);
+									}
+									SDL_FreeSurface(surface);
+								}
 							}
 						}
 					}

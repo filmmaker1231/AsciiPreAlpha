@@ -213,13 +213,16 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods) {
                 }
             }
         }
-        if (myHouse && myHouse->hasSpace()) {
-            auto it = std::find(inventory.begin(), inventory.end(), "food");
-            if (it != inventory.end()) {
-                if (myHouse->addItem("food")) {
-                    inventory.erase(it);
-                    std::cout << "Unit " << name << " delivered food to house storage.\n";
-                }
+		if (myHouse && myHouse->hasSpace()) {
+			auto it = std::find(inventory.begin(), inventory.end(), "food");
+			if (it != inventory.end()) {
+				// Find the symbol for the food (e.g., 'f')
+				char symbol = 'f';
+				// Optionally, if you want to support multiple food types, you can look up the symbol from the Food object
+				if (myHouse->addItem("food", symbol)) {
+					inventory.erase(it);
+					std::cout << "Unit " << name << " delivered food to house storage.\n";
+				}
             }
         } else {
             std::cout << "Unit " << name << " could not deliver food: house full or missing.\n";

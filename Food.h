@@ -46,5 +46,7 @@ public:
     std::vector<Food>& getFood();
     const std::vector<Food>& getFood() const;
 
+	TTF_Font* getFont() const { return font; }
+
 };      // Manages food
 
