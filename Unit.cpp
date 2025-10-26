@@ -10,6 +10,26 @@
 HouseManager* HouseManager = nullptr;
 
 
+static int findClosestFoodIndex(const Unit& unit, const std::vector<Food>& foods, const CellGrid& cellGrid, int& outFoodGridX, int& outFoodGridY) {
+    int unitGridX, unitGridY;
+    cellGrid.pixelToGrid(unit.x, unit.y, unitGridX, unitGridY);
+    int minDist = std::numeric_limits<int>::max();
+    int closestIdx = -1;
+    for (size_t i = 0; i < foods.size(); ++i) {
+        int fx, fy;
+        cellGrid.pixelToGrid(foods[i].x, foods[i].y, fx, fy);
+        int dist = abs(fx - unitGridX) + abs(fy - unitGridY);
+        if (dist < minDist) {
+            minDist = dist;
+            closestIdx = static_cast<int>(i);
+            outFoodGridX = fx;
+            outFoodGridY = fy;
+        }
+    }
+    return closestIdx;
+}
+
+
 void Unit::addAction(const Action& action) {
     if (actionQueue.empty()) {
         actionQueue.push(action);
@@ -130,6 +150,89 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods) {
 		actionQueue.pop();
 		break;
 	}
+	case ActionType::BringItemToHouse: {
+    // Only support "food" for now, but extensible
+    if (current.itemType == "food") {
+        // 1. If not carrying food, path to closest food
+        auto itInInventory = std::find(inventory.begin(), inventory.end(), "food");
+        if (itInInventory == inventory.end()) {
+            // Not carrying food
+            int foodGridX = -1, foodGridY = -1;
+            int closestIdx = findClosestFoodIndex(*this, foods, cellGrid, foodGridX, foodGridY);
+            if (closestIdx == -1) {
+                // No food found, give up
+                actionQueue.pop();
+                break;
+            }
+            int unitGridX, unitGridY;
+            cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+            // If not at food, path to it
+            if (unitGridX != foodGridX || unitGridY != foodGridY) {
+                if (path.empty()) {
+                    auto newPath = aStarFindPath(unitGridX, unitGridY, foodGridX, foodGridY, cellGrid);
+                    if (!newPath.empty()) path = newPath;
+                }
+                break;
+            }
+            // At food, pick it up
+            auto it = std::find_if(foods.begin(), foods.end(), [&](const Food& food) {
+                int fx, fy;
+                cellGrid.pixelToGrid(food.x, food.y, fx, fy);
+                return fx == foodGridX && fy == foodGridY;
+            });
+            if (it != foods.end()) {
+                inventory.push_back("food");
+                foods.erase(it);
+                std::cout << "Unit " << name << " picked up food to bring home.\n";
+            } else {
+                // Food was taken by someone else
+                actionQueue.pop();
+            }
+            break;
+        }
+
+        // 2. If carrying food, path to house
+        int unitGridX, unitGridY;
+        cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+        if (unitGridX != houseGridX || unitGridY != houseGridY) {
+            if (path.empty()) {
+                auto newPath = aStarFindPath(unitGridX, unitGridY, houseGridX, houseGridY, cellGrid);
+                if (!newPath.empty()) path = newPath;
+            }
+            break;
+        }
+
+        // 3. At house, deposit food if house has space
+        House* myHouse = nullptr;
+        if (g_HouseManager) {
+            for (auto& house : g_HouseManager->houses) {
+                if (house.ownerUnitId == id &&
+                    house.gridX == houseGridX && house.gridY == houseGridY) {
+                    myHouse = &house;
+                    break;
+                }
+            }
+        }
+        if (myHouse && myHouse->hasSpace()) {
+            auto it = std::find(inventory.begin(), inventory.end(), "food");
+            if (it != inventory.end()) {
+                if (myHouse->addItem("food")) {
+                    inventory.erase(it);
+                    std::cout << "Unit " << name << " delivered food to house storage.\n";
+                }
+            }
+        } else {
+            std::cout << "Unit " << name << " could not deliver food: house full or missing.\n";
+        }
+        actionQueue.pop();
+    } else {
+        // Future: handle other item types
+        actionQueue.pop();
+    }
+    break;
+}
+
+
 	default:
 		actionQueue.pop();
 		break;

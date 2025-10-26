@@ -16,6 +16,7 @@ public:
     char symbol;        // Character to display (e.g., '@')
     int health;
 	int hunger = 100;
+	std::vector<std::string> inventory;
 	Uint32 lastHungerUpdate = 0;
 	Uint32 lastHungerDebugPrint = 0;
     int id;
@@ -32,6 +33,9 @@ public:
 	  void addAction(const Action& action);
 	  void processAction(CellGrid& cellGrid, std::vector<Food>& foods);
 	  void tryFindAndPathToFood(CellGrid& cellGrid, std::vector<Food>& foods);
+	  void bringItemToHouse(const std::string& itemType) {
+		  addAction(Action(ActionType::BringItemToHouse, 5, itemType));
+	  }
 
 	
 

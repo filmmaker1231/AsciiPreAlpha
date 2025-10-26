@@ -5,16 +5,17 @@ enum class ActionType {
     Wander,
     Eat,
 	BuildHouse,
+    BringItemToHouse,
     // Add more as needed
 };
 
-struct Action {
+struct Action { 
     ActionType type;
     int priority;
-    // Optionally, add more data (e.g., target position, item, etc.)
+    std::string itemType;
 
-    Action(ActionType type, int priority) : type(type), priority(priority) {}
-
+    Action(ActionType type, int priority, const std::string& itemType = "")
+        : type(type), priority(priority), itemType(itemType) {}
 };
 
 

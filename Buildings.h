@@ -6,14 +6,39 @@
 
 
 struct House {
-    int ownerUnitId;
-    int gridX, gridY; // Top-left of 3x3 area
-    std::vector<int> foodIds; // For future use
+	int ownerUnitId;
+	int gridX, gridY; // Top-left of 3x3 area
+	// 3x3 grid of item types, empty string means empty
+	std::string items[3][3];
 
-    House(int ownerId, int x, int y)
-        : ownerUnitId(ownerId), gridX(x), gridY(y) {}
+	House(int ownerId, int x, int y)
+		: ownerUnitId(ownerId), gridX(x), gridY(y) {
+		for (int i = 0; i < 3; ++i)
+			for (int j = 0; j < 3; ++j)
+				items[i][j] = "";
+	}
 
+	// Returns true if item was added, false if full
+	bool addItem(const std::string& itemType) {
+		for (int dx = 0; dx < 3; ++dx) {
+			for (int dy = 0; dy < 3; ++dy) {
+				if (items[dx][dy].empty()) {
+					items[dx][dy] = itemType;
+					return true;
+				}
+			}
+		}
+		return false;
+	}
 
+	// Returns true if there is at least one empty slot
+	bool hasSpace() const {
+		for (int dx = 0; dx < 3; ++dx)
+			for (int dy = 0; dy < 3; ++dy)
+				if (items[dx][dy].empty())
+					return true;
+		return false;
+	}
 };
 
 class HouseManager {

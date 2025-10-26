@@ -36,6 +36,35 @@ void runMainLoop(sdl& app) {
         // Process units
         for (auto& unit : app.unitManager->getUnits()) {
 
+
+
+			// --- AUTO BRING FOOD TO HOUSE LOGIC ---
+// Only if the unit is not already bringing food, and house is not full
+			bool alreadyBringingFood = false;
+			if (!unit.actionQueue.empty()) {
+				Action current = unit.actionQueue.top();
+				if (current.type == ActionType::BringItemToHouse && current.itemType == "food") {
+					alreadyBringingFood = true;
+				}
+			}
+
+			// Only try to bring food if there is food available
+			if (!alreadyBringingFood && g_HouseManager && app.foodManager && !app.foodManager->getFood().empty()) {
+				for (auto& house : g_HouseManager->houses) {
+					if (house.ownerUnitId == unit.id &&
+						house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
+						if (house.hasSpace()) {
+							unit.bringItemToHouse("food");
+						}
+						break;
+					}
+				}
+			}
+
+
+
+
+
             // --- HUNGER LOGIC START ---
             // Decrease hunger by 1 every 10 seconds (10000 ms)
             if (now - unit.lastHungerUpdate >= 10000) {
@@ -54,6 +83,10 @@ void runMainLoop(sdl& app) {
             }
             // --- HUNGER LOGIC END ---
 
+
+
+
+
             // If hungry and not already seeking food, try to find food
             // Only check this periodically to optimize performance
             if ((frameCounter % HUNGER_CHECK_FRAMES == 0) && unit.hunger <= 99) {
@@ -68,6 +101,15 @@ void runMainLoop(sdl& app) {
                     unit.tryFindAndPathToFood(*app.cellGrid, app.foodManager->getFood());
                 }
             }
+
+
+
+
+
+
+
+
+
 
             // Process queued actions - only if there's something to process
             if (!unit.actionQueue.empty() || !unit.path.empty()) {
@@ -86,27 +128,41 @@ void runMainLoop(sdl& app) {
 
         renderCellGrid(app.renderer, *app.cellGrid, app.showCellGrid);
 
+		// --- RENDER HOUSES ---
+		// --- RENDER HOUSES ---
+		if (g_HouseManager) {
+			SDL_SetRenderDrawColor(app.renderer, 139, 69, 19, 255); // Brown
+
+			for (const auto& s : g_HouseManager->houses) {
+				// Draw house tiles
+				for (int dx = 0; dx < 3; ++dx) {
+					for (int dy = 0; dy < 3; ++dy) {
+						int px, py;
+						app.cellGrid->gridToPixel(s.gridX + dx, s.gridY + dy, px, py);
+						SDL_Rect rect = { px, py, GRID_SIZE, GRID_SIZE };
+						SDL_RenderFillRect(app.renderer, &rect);
+
+						// Draw stored item if present
+						if (!s.items[dx][dy].empty()) {
+							// For food, draw a red circle or a simple 'F'
+							SDL_SetRenderDrawColor(app.renderer, 255, 0, 0, 255); // Red for food
+							// Draw a small filled rect as a placeholder for the item
+							SDL_Rect itemRect = { px + GRID_SIZE / 4, py + GRID_SIZE / 4, GRID_SIZE / 2, GRID_SIZE / 2 };
+							SDL_RenderFillRect(app.renderer, &itemRect);
+							SDL_SetRenderDrawColor(app.renderer, 139, 69, 19, 255); // Reset to house color
+						}
+					}
+				}
+			}
+		}
+
         // Render units and their paths
         if (app.unitManager) {
             app.unitManager->renderUnits(app.renderer);
             app.unitManager->renderUnitPaths(app.renderer, *app.cellGrid);
         }
 
-        // --- RENDER HOUSES ---
-        if (g_HouseManager) {
-            SDL_SetRenderDrawColor(app.renderer, 139, 69, 19, 255); // Brown
-
-            for (const auto& s : g_HouseManager->houses) {
-                for (int dx = 0; dx < 3; ++dx) {
-                    for (int dy = 0; dy < 3; ++dy) {
-                        int px, py;
-                        app.cellGrid->gridToPixel(s.gridX + dx, s.gridY + dy, px, py);
-                        SDL_Rect rect = { px, py, GRID_SIZE, GRID_SIZE };
-                        SDL_RenderFillRect(app.renderer, &rect);
-                    }
-                }
-            }
-        }
+        
 
         // Render food
         if (app.foodManager) {
