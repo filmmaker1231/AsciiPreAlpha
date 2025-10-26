@@ -241,6 +241,8 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
             if (it != foods.end()) {
                 carriedFoodId = it->foodId;
                 it->carriedByUnitId = id;
+                it->x = x;  // Update position to unit's position
+                it->y = y;
                 inventory.push_back("food"); // Keep for backward compatibility
                 std::cout << "Unit " << name << " picked up food (id " << it->foodId << ") to bring home.\n";
             } else {
@@ -422,6 +424,8 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 			if (closestIdx >= 0 && closestIdx < static_cast<int>(seeds.size())) {
 				carriedSeedId = seeds[closestIdx].seedId;
 				seeds[closestIdx].carriedByUnitId = id;
+				seeds[closestIdx].x = x;  // Update position to unit's position
+				seeds[closestIdx].y = y;
 				std::cout << "Unit " << name << " picked up seed (id " << seeds[closestIdx].seedId << ") to bring home.\n";
 			} else {
 				// Seed was taken by someone else
@@ -612,6 +616,8 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 				});
 				if (it != seeds.end()) {
 					it->carriedByUnitId = id;
+					it->x = x;  // Update position to unit's position
+					it->y = y;
 					std::cout << "Unit " << name << " picked up seed (id " << seedId << ") from house to plant.\n";
 				}
 			}
@@ -727,11 +733,9 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 				return seed.seedId == grownFoodId;
 			});
 			if (seedIt != seeds.end()) {
-				// Create food at seed location
-				int seedX = seedIt->x;
-				int seedY = seedIt->y;
+				// Create food at unit location (being picked up immediately)
 				static int nextFoodId = 10000; // Start from high number to avoid conflicts
-				Food newFood(seedX, seedY, 'f', "farmfood", 100, nextFoodId++);
+				Food newFood(x, y, 'f', "farmfood", 100, nextFoodId++);
 				newFood.carriedByUnitId = id;
 				newFood.ownedByHouseId = id;
 				foods.push_back(newFood);
