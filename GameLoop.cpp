@@ -91,6 +91,24 @@ void runMainLoop(sdl& app) {
             }
             // --- HUNGER LOGIC END ---
 
+            // --- MORALITY LOGIC START ---
+            // Update morality every 1 second (1000 ms)
+            if (now - unit.lastMoralityUpdate >= 1000) {
+                if (unit.hunger < 50) {
+                    // Decrease morality by 1 if hunger is below 50
+                    if (unit.morality > 0) {
+                        unit.morality -= 1;
+                    }
+                } else if (unit.hunger > 50) {
+                    // Increase morality by 1 if hunger is above 50
+                    if (unit.morality < 100) {
+                        unit.morality += 1;
+                    }
+                }
+                unit.lastMoralityUpdate = now;
+            }
+            // --- MORALITY LOGIC END ---
+
 
 
 			// --- EAT FROM HOUSE LOGIC ---
@@ -119,13 +137,38 @@ void runMainLoop(sdl& app) {
 				}
 			}
 
+			// --- STEALING LOGIC ---
+			// If morality is below 10 and hunger is 30 or below, unit will steal from nearest home
+			bool tryingToSteal = false;
+			if ((frameCounter % HUNGER_CHECK_FRAMES == 0) && unit.morality < 10 && unit.hunger <= 30) {
+				bool alreadyStealing = false;
+				if (!unit.actionQueue.empty()) {
+					Action current = unit.actionQueue.top();
+					if (current.type == ActionType::StealFood) {
+						alreadyStealing = true;
+					}
+				}
+				if (!alreadyStealing && g_HouseManager) {
+					// Check if there's any house (including others') with food
+					for (auto& house : g_HouseManager->houses) {
+						if (house.hasFood()) {
+							// Add StealFood action with priority 8
+							unit.addAction(Action(ActionType::StealFood, 8));
+							tryingToSteal = true;
+							break;
+						}
+					}
+				}
+			}
+
 
 
             // If hungry and not already seeking food, try to find food from world
             // Only check this periodically to optimize performance
             // Skip if unit is trying to eat from house (hunger < 50 and house has food)
+            // Skip if unit is trying to steal (morality < 10 and hunger <= 30)
             // Note: hunger <= 99 allows units to proactively gather food even when only slightly hungry
-            if ((frameCounter % HUNGER_CHECK_FRAMES == 0) && unit.hunger <= 99 && !tryingToEatFromHouse) {
+            if ((frameCounter % HUNGER_CHECK_FRAMES == 0) && unit.hunger <= 99 && !tryingToEatFromHouse && !tryingToSteal) {
                 bool alreadySeekingFood = false;
                 if (!unit.actionQueue.empty()) {
                     Action current = unit.actionQueue.top();

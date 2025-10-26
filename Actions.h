@@ -11,6 +11,7 @@ enum class ActionType {
     BuildFarm,
     PlantSeed,
     HarvestFood,
+    StealFood,
     // Add more as needed
 };
 
