@@ -23,7 +23,6 @@ public:
     unsigned int lastMoveTime;   // Last time the unit moved (in SDL ticks)
 	int houseGridX = -1; // Grid X of assigned house location
 	int houseGridY = -1; // Grid Y of assigned house location
-	int carryingFoodId = -1; // ID of food being carried, -1 if not carrying
 
 
 
@@ -33,8 +32,6 @@ public:
 	  void addAction(const Action& action);
 	  void processAction(CellGrid& cellGrid, std::vector<Food>& foods);
 	  void tryFindAndPathToFood(CellGrid& cellGrid, std::vector<Food>& foods);
-	  void tryEatFromHouse();
-	  bool isAtHouse(int gridX, int gridY) const;
 
 	
 
