@@ -7,8 +7,13 @@
 // Pass sdl& app as a parameter
  // Make sure to include your pathfinding header
 
+// Initialize debounce timers
+Uint32 lastUnitSpawnTime = 0;
+Uint32 lastFoodSpawnTime = 0;
+
 void handleInput(sdl& app) {
     const Uint8* keyState = SDL_GetKeyboardState(nullptr);
+    Uint32 currentTime = SDL_GetTicks();
 
 
 	bool fHeld = keyState[SDL_SCANCODE_F];
@@ -25,18 +30,24 @@ void handleInput(sdl& app) {
 	
 
 
-    // Spawn unit with U + click
+    // Spawn unit with U + click (with debounce)
     if (uHeld && (mouseButtons & SDL_BUTTON(SDL_BUTTON_LEFT))) {
-        if (app.unitManager) {
-            app.unitManager->spawnUnit(mouseX, mouseY, "unit", app.cellGrid);
+        if (currentTime - lastUnitSpawnTime >= SPAWN_DEBOUNCE_MS) {
+            if (app.unitManager) {
+                app.unitManager->spawnUnit(mouseX, mouseY, "unit", app.cellGrid);
+                lastUnitSpawnTime = currentTime;
+            }
         }
     }
 
 
 	if (fHeld && (mouseButtons & SDL_BUTTON(SDL_BUTTON_LEFT))) {
-		if (app.foodManager) {
-			app.foodManager->spawnFood(mouseX, mouseY, "food");
-		}
+        if (currentTime - lastFoodSpawnTime >= SPAWN_DEBOUNCE_MS) {
+            if (app.foodManager) {
+                app.foodManager->spawnFood(mouseX, mouseY, "food");
+                lastFoodSpawnTime = currentTime;
+            }
+        }
     }
 
     // Path last unit with P + click
