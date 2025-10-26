@@ -912,8 +912,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 		// The actual fighting logic is in GameLoop.cpp
 		
 		// If stolenFromByUnitId is -1, the fight is over, so remove this action
-		// We're processing this Fight action because it's at the top of the queue
-		if (stolenFromByUnitId == -1 && actionQueue.top().type == ActionType::Fight) {
+		if (stolenFromByUnitId == -1) {
 			actionQueue.pop();
 		}
 		break;
