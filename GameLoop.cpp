@@ -417,12 +417,26 @@ void runMainLoop(sdl& app) {
 						unit.stolenFromByUnitId = -1;
 						unit.fightingTargetId = -1;
 						unit.moveDelay = 50;
+						// Clear Fight action from queue
+						if (!unit.actionQueue.empty()) {
+							Action current = unit.actionQueue.top();
+							if (current.type == ActionType::Fight) {
+								unit.actionQueue.pop();
+							}
+						}
 					}
 				} else {
 					// Thief not found (might have been deleted), clear tracking and restore speed
 					unit.stolenFromByUnitId = -1;
 					unit.fightingTargetId = -1;
 					unit.moveDelay = 50;
+					// Clear Fight action from queue
+					if (!unit.actionQueue.empty()) {
+						Action current = unit.actionQueue.top();
+						if (current.type == ActionType::Fight) {
+							unit.actionQueue.pop();
+						}
+					}
 				}
 			}
 			
@@ -433,6 +447,14 @@ void runMainLoop(sdl& app) {
 				unit.fightStartTime = 0;
 				// Restore normal speed
 				unit.moveDelay = 50;
+				
+				// Clear Fight action from queue so unit can return to Wander
+				if (!unit.actionQueue.empty()) {
+					Action current = unit.actionQueue.top();
+					if (current.type == ActionType::Fight) {
+						unit.actionQueue.pop();
+					}
+				}
 			}
 			
 			// Prevent movement if clamped
