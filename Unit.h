@@ -21,6 +21,8 @@ public:
     int id;
     unsigned int moveDelay;      // Delay in milliseconds between moves
     unsigned int lastMoveTime;   // Last time the unit moved (in SDL ticks)
+	int houseGridX = -1; // Grid X of assigned house location
+	int houseGridY = -1; // Grid Y of assigned house location
 
 
 

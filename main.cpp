@@ -14,7 +14,8 @@ int main() {
         return 1;
     }
 
-    initializeGameUnits(app.unitManager);
+    // Correct call to initialize units
+    initializeGameUnits(app.unitManager, app.cellGrid);
 
     runMainLoop(app);
 

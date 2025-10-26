@@ -111,10 +111,8 @@ public:
     }
     
     // Convert grid coordinates to pixel coordinates (top-left corner of cell)
-    void gridToPixel(int gridX, int gridY, int& pixelX, int& pixelY) const {
-        pixelX = gridX * GRID_SIZE;
-        pixelY = gridY * GRID_SIZE;
-    }
+    void gridToPixel(int gridX, int gridY, int& pixelX, int& pixelY) const;
+
     
     // Clear all cells
     void clearAll() {

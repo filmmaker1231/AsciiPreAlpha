@@ -1,6 +1,11 @@
 #include "UnitManager.h"
+#include <SDL.h>
+#include <SDL_ttf.h>
 #include <iostream>
+#include <random>
 #include "CellGrid.h"
+#include "Buildings.h"
+#include "Unit.h"
 
 UnitManager::UnitManager() : font(nullptr) {
 }
@@ -34,7 +39,7 @@ bool UnitManager::initializeFont(const char* fontPath, int fontSize) {
     return true;
 }
 
-void UnitManager::spawnUnit(int x, int y, const std::string& name) {
+void UnitManager::spawnUnit(int x, int y, const std::string& name, CellGrid* cellGrid) {
     static int nextId = 1; // Static to ensure unique IDs
     units.emplace_back(x, y, '@', name, 100, nextId++);
 	Unit& unit = units.back();
@@ -42,6 +47,28 @@ void UnitManager::spawnUnit(int x, int y, const std::string& name) {
 	unit.lastHungerUpdate = SDL_GetTicks();
 	unit.lastHungerDebugPrint = SDL_GetTicks();
     std::cout << "Spawned unit '" << name << "' at (" << x << ", " << y << ") with id " << (nextId-1) << std::endl;
+
+	// Generate random house location
+	if (cellGrid) {
+		int gridWidth = cellGrid->getWidthInCells();
+		int gridHeight = cellGrid->getHeightInCells();
+
+		std::random_device rd;
+		std::mt19937 gen(rd());
+		std::uniform_int_distribution<> distX(0, gridWidth - 3);
+		std::uniform_int_distribution<> distY(0, gridHeight - 3);
+
+		int randomX = distX(gen);
+		int randomY = distY(gen);
+
+		unit.houseGridX = randomX;
+		unit.houseGridY = randomY;
+		unit.addAction(Action(ActionType::BuildHouse, 8));
+	}
+	unit.addAction(Action(ActionType::BuildHouse, 8));
+
+
+
 }
 
 
@@ -72,20 +99,20 @@ void UnitManager::renderUnits(SDL_Renderer* renderer) {
     }
 }
 
-void initializeGameUnits(UnitManager* unitManager) {
-    if (!unitManager) {
+void initializeGameUnits(UnitManager* unitManager, CellGrid* cellGrid) {
+    if (!unitManager || !cellGrid) {
         return;
     }
-    
-    // Spawn a few sample units
-    unitManager->spawnUnit(200, 150, "Player");
-    unitManager->spawnUnit(400, 300, "Guard");
-    unitManager->spawnUnit(600, 450, "Merchant");
 
-	// Set moveDelay for all units after spawning
-	for (auto& unit : unitManager->getUnits()) {
+    // Spawn a few sample units
+    unitManager->spawnUnit(200, 150, "Player", cellGrid);
+    unitManager->spawnUnit(400, 300, "Guard", cellGrid);
+    unitManager->spawnUnit(600, 450, "Merchant", cellGrid);
+
+    // Set moveDelay for all units after spawning
+    for (auto& unit : unitManager->getUnits()) {
         unit.moveDelay = 50;
-	}
+    }
 }
 
 void UnitManager::renderUnitPaths(SDL_Renderer* renderer, const CellGrid& cellGrid) {

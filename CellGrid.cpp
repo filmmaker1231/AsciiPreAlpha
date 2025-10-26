@@ -2,6 +2,12 @@
 
 #include <SDL.h>
 
+
+void CellGrid::gridToPixel(int gridX, int gridY, int& pixelX, int& pixelY) {
+pixelX = gridX * GRID_SIZE;
+pixelY = gridY * GRID_SIZE;
+}
+
 void renderCellGrid(SDL_Renderer* renderer, const CellGrid& cellGrid, bool showCellInfo) {
     // Draw grid lines with semi-transparent white
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 80);
@@ -10,6 +16,9 @@ void renderCellGrid(SDL_Renderer* renderer, const CellGrid& cellGrid, bool showC
     int heightInPixels = cellGrid.getHeightInPixels();
     int widthInCells = cellGrid.getWidthInCells();
     int heightInCells = cellGrid.getHeightInCells();
+
+
+	
     
     // Draw vertical lines
     for (int x = 0; x <= widthInCells; x++) {

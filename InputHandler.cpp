@@ -28,7 +28,7 @@ void handleInput(sdl& app) {
     // Spawn unit with U + click
     if (uHeld && (mouseButtons & SDL_BUTTON(SDL_BUTTON_LEFT))) {
         if (app.unitManager) {
-            app.unitManager->spawnUnit(mouseX, mouseY, "unit");
+            app.unitManager->spawnUnit(mouseX, mouseY, "unit", app.cellGrid);
         }
     }
 

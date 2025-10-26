@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Actions.h" />
+    <ClInclude Include="Buildings.h" />
     <ClInclude Include="CellGrid.h" />
     <ClInclude Include="Food.h" />
     <ClInclude Include="GameLoop.h" />
@@ -36,6 +37,7 @@
     <ClInclude Include="World.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Buildings.cpp" />
     <ClCompile Include="CellGrid.cpp" />
     <ClCompile Include="CellGridExample.cpp" />
     <ClCompile Include="EXAMPLE_USAGE.cpp" />

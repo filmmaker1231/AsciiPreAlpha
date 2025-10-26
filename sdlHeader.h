@@ -14,6 +14,7 @@ struct sdl {
     CellGrid* cellGrid = nullptr;
     UnitManager* unitManager = nullptr;
 	FoodManager* foodManager = nullptr;
+
     bool showCellGrid = false;
 	
 	

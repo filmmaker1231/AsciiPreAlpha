@@ -19,7 +19,8 @@ public:
     bool initializeFont(const char* fontPath, int fontSize);
 
     // Spawn a unit with @ symbol at given position
-    void spawnUnit(int x, int y, const std::string& name);
+    void spawnUnit(int x, int y, const std::string& name, CellGrid* cellGrid);
+
 
     // Render all units
     void renderUnits(SDL_Renderer* renderer);
@@ -34,7 +35,7 @@ public:
 
 
 // Initialize with sample units - call this from main
-void initializeGameUnits(UnitManager* unitManager);
+void initializeGameUnits(UnitManager* unitManager, CellGrid* cellGrid);
 
 
 

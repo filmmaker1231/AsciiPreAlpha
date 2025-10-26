@@ -5,6 +5,10 @@
 #include <iostream>
 #include <SDL.h>
 #include <limits>
+#include "Buildings.h"
+
+StockpileManager* StockpileManager = nullptr;
+
 
 void Unit::addAction(const Action& action) {
     if (actionQueue.empty()) {
@@ -109,6 +113,31 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods) {
 		// If path is not empty, keep the Eat action and continue moving toward food
 		break;
 	}
+	case ActionType::BuildHouse: {
+		int gridX, gridY;
+		cellGrid.pixelToGrid(x, y, gridX, gridY);
+		if (gridX != houseGridX || gridY != houseGridY) {
+			if (path.empty()) {
+				auto newPath = aStarFindPath(gridX, gridY, houseGridX, houseGridY, cellGrid);
+				if (!newPath.empty()) path = newPath;
+			}
+			// Wait for movement to finish
+			break;
+		}
+		// Build house: mark 3x3 as solid, add to StockpileManager
+		for (int dx = 0; dx < 3; ++dx) {
+			for (int dy = 0; dy < 3; ++dy) {
+				MapCell* cell = cellGrid.getCell(houseGridX + dx, houseGridY + dy);
+				if (cell) cell->isWalkable = false;
+			}
+		}
+		if (StockpileManager) {
+			StockpileManager->addStockpile(Stockpile(id, houseGridX, houseGridY));
+		}
+		std::cout << "Unit " << name << " built a house at (" << houseGridX << ", " << houseGridY << ")\n";
+		actionQueue.pop();
+		break;
+	}
 	default:
 		actionQueue.pop();
 		break;
@@ -145,6 +174,7 @@ void Unit::tryFindAndPathToFood(CellGrid& cellGrid, std::vector<Food>& foods) {
             path = newPath;
             // Add Eat action with priority 9
             addAction(Action(ActionType::Eat, 9));
+			addAction(Action(ActionType::BuildHouse, 8));
         }
     }
 }

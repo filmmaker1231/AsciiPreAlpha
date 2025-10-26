@@ -4,6 +4,7 @@
 enum class ActionType {
     Wander,
     Eat,
+	BuildHouse,
     // Add more as needed
 };
 
@@ -13,6 +14,7 @@ struct Action {
     // Optionally, add more data (e.g., target position, item, etc.)
 
     Action(ActionType type, int priority) : type(type), priority(priority) {}
+
 };
 
 
