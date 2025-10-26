@@ -118,7 +118,7 @@ void SeedManager::renderSeeds(SDL_Renderer* renderer) {
         return;
     }
     
-    SDL_Color color = {200, 200, 200, 255}; // Gray color for seeds
+    SDL_Color color = {255, 255, 255, 255}; // White color for seeds (high visibility)
     
     for (const auto& seedItem : seeds) {
         // Create surface with the seed symbol
