@@ -916,6 +916,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 
 	default:
 		actionQueue.pop();
+		
 		break;
 	}
 }

@@ -137,13 +137,13 @@ void initializeGameUnits(UnitManager* unitManager, CellGrid* cellGrid) {
     }
 
     // Spawn a few sample units
-    unitManager->spawnUnit(200, 150, "Player", cellGrid);
-    unitManager->spawnUnit(400, 300, "Guard", cellGrid);
-    unitManager->spawnUnit(600, 450, "Merchant", cellGrid);
+    unitManager->spawnUnit(200, 150, "Bubby", cellGrid);
+	unitManager->spawnUnit(200, 150, "Charles", cellGrid);
+    
 
-    // Set moveDelay for all units after spawning
+	// Set moveDelay for all units after spawning -- Changes speed of OG units
     for (auto& unit : unitManager->getUnits()) {
-        unit.moveDelay = 50;
+        unit.moveDelay = 1; 
     }
 }
 

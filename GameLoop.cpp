@@ -89,7 +89,7 @@ void runMainLoop(sdl& app) {
             // --- MORALITY LOGIC START ---
             // Update morality every 1 second (1000 ms)
             if (now - unit.lastMoralityUpdate >= 200) {
-                if (unit.hunger < 50) {
+                if (unit.hunger < 100) {
                     // Decrease morality by 1 if hunger is below 50
                     if (unit.morality > 0) {
                         unit.morality -= 1;
@@ -97,7 +97,7 @@ void runMainLoop(sdl& app) {
                 } else if (unit.hunger > 50) {
                     // Increase morality by 1 if hunger is above 50
                     if (unit.morality < 100) {
-                        unit.morality += 1;
+                        unit.morality += 0;
                     }
                 }
                 unit.lastMoralityUpdate = now;
@@ -362,8 +362,8 @@ void runMainLoop(sdl& app) {
 					app.cellGrid->pixelToGrid(thiefUnit->x, thiefUnit->y, thiefGridX, thiefGridY);
 					int dist = abs(thiefGridX - unitGridX) + abs(thiefGridY - unitGridY);
 					
-					// If thief is within 5 tiles, start or continue fighting
-					if (dist <= 5) {
+					// If thief is within 50 tiles, start or continue fighting
+					if (dist <= 50) {
 						bool alreadyFighting = false;
 						if (!unit.actionQueue.empty()) {
 							Action current = unit.actionQueue.top();
@@ -397,7 +397,13 @@ void runMainLoop(sdl& app) {
 							
 							// Clear the thief's action queue so they return to default Wander behavior
 							std::priority_queue<Action, std::vector<Action>, ActionComparator> empty;
+							std::cout << "Thief " << thiefUnit->name << "'s action queue cleared after being hit.\n";
 							std::swap(thiefUnit->actionQueue, empty);
+
+
+							
+
+							
 							
 							// Speed will be restored when unclamped (line 428) or fight ends
 						}
@@ -427,18 +433,18 @@ void runMainLoop(sdl& app) {
 			}
 			
 			// Handle clamping during fight - prevent movement for 2 seconds
-			if (unit.isClamped && now - unit.fightStartTime >= 2000) {
+			/*if (unit.isClamped && now - unit.fightStartTime >= 2000) {
 				// 2 seconds have passed, unclamp
 				unit.isClamped = false;
 				unit.fightStartTime = 0;
 				// Restore normal speed
 				unit.moveDelay = 50;
-			}
+			}*/
 			
 			// Prevent movement if clamped
-			if (unit.isClamped) {
-				unit.path.clear();
-			}
+			//if (unit.isClamped) {
+			//	unit.path.clear();
+			//}
 
             // Process queued actions - only if there's something to process
             if (!unit.actionQueue.empty() || !unit.path.empty()) {
@@ -448,6 +454,8 @@ void runMainLoop(sdl& app) {
             // If no actions left, re-add Wander
             if (unit.actionQueue.empty()) {
                 unit.addAction(Action(ActionType::Wander, 1));
+				std::cout << "Unit " << unit.name << " (id " << unit.id << ") re-added Wander action.\n";
+
             }
         }
 
