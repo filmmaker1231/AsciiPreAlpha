@@ -7,8 +7,6 @@
 #include <limits>
 #include "Buildings.h"
 
-HouseManager* g_HouseManager = nullptr;
-FarmManager* g_FarmManager = nullptr;
 
 // Global seed ID counter for all seed generation
 // Note: This is safe for single-threaded SDL game. Overflow is not a practical concern
