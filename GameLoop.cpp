@@ -36,7 +36,31 @@ void runMainLoop(sdl& app) {
         // Process units
         for (auto& unit : app.unitManager->getUnits()) {
 
+			// --- UPDATE CARRIED FOOD POSITION ---
+			// If unit is carrying food, update the food's position to follow the unit
+			if (unit.carriedFoodId != -1 && app.foodManager) {
+				auto& foods = app.foodManager->getFood();
+				auto it = std::find_if(foods.begin(), foods.end(), [&](const Food& food) {
+					return food.foodId == unit.carriedFoodId;
+				});
+				if (it != foods.end()) {
+					it->x = unit.x;
+					it->y = unit.y;
+				}
+			}
 
+			// --- UPDATE CARRIED SEED POSITION ---
+			// If unit is carrying seed, update the seed's position to follow the unit
+			if (unit.carriedSeedId != -1 && app.seedManager) {
+				auto& seeds = app.seedManager->getSeeds();
+				auto it = std::find_if(seeds.begin(), seeds.end(), [&](const Seed& seed) {
+					return seed.seedId == unit.carriedSeedId;
+				});
+				if (it != seeds.end()) {
+					it->x = unit.x;
+					it->y = unit.y;
+				}
+			}
 
 			// --- AUTO BRING FOOD TO HOUSE LOGIC ---
 // Only if the unit is not already bringing food, and house is not full
@@ -48,13 +72,23 @@ void runMainLoop(sdl& app) {
 				}
 			}
 
-			// Only try to bring food if there is food available
+			// Only try to bring food if there is food available (and not carried by anyone)
 			if (!alreadyBringingFood && g_HouseManager && app.foodManager && !app.foodManager->getFood().empty()) {
 				for (auto& house : g_HouseManager->houses) {
 					if (house.ownerUnitId == unit.id &&
 						house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
 						if (house.hasSpace()) {
-							unit.bringItemToHouse("food");
+							// Check if there's any free food in the world
+							bool hasFreeFood = false;
+							for (const auto& food : app.foodManager->getFood()) {
+								if (food.carriedByUnitId == -1 && food.ownedByHouseId == -1) {
+									hasFreeFood = true;
+									break;
+								}
+							}
+							if (hasFreeFood) {
+								unit.bringItemToHouse("food");
+							}
 						}
 						break;
 					}
@@ -139,9 +173,138 @@ void runMainLoop(sdl& app) {
 
 
 
+			// --- AUTO COLLECT SEEDS LOGIC (Priority 3) ---
+			// Only if there are seeds on the map and not already collecting
+			if (app.seedManager && !app.seedManager->getSeeds().empty()) {
+				bool alreadyCollectingSeed = false;
+				if (!unit.actionQueue.empty()) {
+					Action current = unit.actionQueue.top();
+					if (current.type == ActionType::CollectSeed) {
+						alreadyCollectingSeed = true;
+					}
+				}
+				
+				if (!alreadyCollectingSeed && g_HouseManager) {
+					// Check if unit has a house with space
+					for (auto& house : g_HouseManager->houses) {
+						if (house.ownerUnitId == unit.id &&
+							house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
+							if (house.hasSpace()) {
+								// Check if there's any free seed in the world (unowned or owned by me)
+								bool hasCollectableSeed = false;
+								for (const auto& seed : app.seedManager->getSeeds()) {
+									if (seed.carriedByUnitId == -1 && 
+										(seed.ownedByHouseId == -1 || seed.ownedByHouseId == unit.id)) {
+										hasCollectableSeed = true;
+										break;
+									}
+								}
+								if (hasCollectableSeed) {
+									unit.addAction(Action(ActionType::CollectSeed, 3));
+								}
+							}
+							break;
+						}
+					}
+				}
+			}
+
+			// --- AUTO BUILD FARM LOGIC (Priority 4) ---
+			// Build farm if we have at least 1 seed in house and no farm yet
+			if (g_HouseManager && g_FarmManager) {
+				bool alreadyBuildingFarm = false;
+				if (!unit.actionQueue.empty()) {
+					Action current = unit.actionQueue.top();
+					if (current.type == ActionType::BuildFarm) {
+						alreadyBuildingFarm = true;
+					}
+				}
+				
+				if (!alreadyBuildingFarm) {
+					// Check if unit has a house with seeds
+					for (auto& house : g_HouseManager->houses) {
+						if (house.ownerUnitId == unit.id &&
+							house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
+							if (house.hasSeed()) {
+								// Check if farm already exists
+								bool farmExists = false;
+								for (const auto& farm : g_FarmManager->farms) {
+									if (farm.ownerUnitId == unit.id) {
+										farmExists = true;
+										break;
+									}
+								}
+								if (!farmExists) {
+									unit.addAction(Action(ActionType::BuildFarm, 4));
+								}
+							}
+							break;
+						}
+					}
+				}
+			}
+
+			// --- AUTO PLANT SEEDS LOGIC (Priority 4) ---
+			// Plant seeds from house to farm if farm has space
+			if (g_HouseManager && g_FarmManager) {
+				bool alreadyPlanting = false;
+				if (!unit.actionQueue.empty()) {
+					Action current = unit.actionQueue.top();
+					if (current.type == ActionType::PlantSeed) {
+						alreadyPlanting = true;
+					}
+				}
+				
+				if (!alreadyPlanting) {
+					// Check if unit has a farm with space and house with seeds
+					for (auto& farm : g_FarmManager->farms) {
+						if (farm.ownerUnitId == unit.id && farm.hasSpace()) {
+							// Check if house has seeds
+							for (auto& house : g_HouseManager->houses) {
+								if (house.ownerUnitId == unit.id &&
+									house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
+									if (house.hasSeed()) {
+										unit.addAction(Action(ActionType::PlantSeed, 4));
+									}
+									break;
+								}
+							}
+							break;
+						}
+					}
+				}
+			}
+
+			// --- AUTO HARVEST FOOD LOGIC (Priority 4) ---
+			// Harvest grown food from farm
+			if (g_FarmManager) {
+				bool alreadyHarvesting = false;
+				if (!unit.actionQueue.empty()) {
+					Action current = unit.actionQueue.top();
+					if (current.type == ActionType::HarvestFood) {
+						alreadyHarvesting = true;
+					}
+				}
+				
+				if (!alreadyHarvesting) {
+					// Check if unit has a farm with grown food
+					for (auto& farm : g_FarmManager->farms) {
+						if (farm.ownerUnitId == unit.id) {
+							Uint32 currentTime = SDL_GetTicks();
+							if (farm.getFirstGrownFoodId(currentTime) != -1) {
+								unit.addAction(Action(ActionType::HarvestFood, 4));
+							}
+							break;
+						}
+					}
+				}
+			}
+
+
+
             // Process queued actions - only if there's something to process
             if (!unit.actionQueue.empty() || !unit.path.empty()) {
-                unit.processAction(*app.cellGrid, app.foodManager->getFood());
+                unit.processAction(*app.cellGrid, app.foodManager->getFood(), app.seedManager->getSeeds());
             }
 
             // If no actions left, re-add Wander
@@ -157,9 +320,9 @@ void runMainLoop(sdl& app) {
         renderCellGrid(app.renderer, *app.cellGrid, app.showCellGrid);
 
 		// --- RENDER HOUSES ---
-		// Render house tiles first, then items on top to ensure items are always visible
+		// Render house tiles (brown background)
+		// Food items inside houses are rendered by the FoodManager in its own pass
 		if (g_HouseManager) {
-			// First pass: Draw all house tiles (brown background)
 			SDL_SetRenderDrawColor(app.renderer, 139, 69, 19, 255); // Brown
 			for (const auto& s : g_HouseManager->houses) {
 				for (int dx = 0; dx < 3; ++dx) {
@@ -171,36 +334,19 @@ void runMainLoop(sdl& app) {
 					}
 				}
 			}
+		}
 
-			// Second pass: Draw all stored items on top of house tiles
-			// This ensures food items are always visible above the house structure
-			for (const auto& s : g_HouseManager->houses) {
+		// --- RENDER FARMS ---
+		// Render farm tiles (brownish-green background)
+		if (g_FarmManager) {
+			SDL_SetRenderDrawColor(app.renderer, 107, 142, 35, 255); // Olive drab (brownish-green)
+			for (const auto& farm : g_FarmManager->farms) {
 				for (int dx = 0; dx < 3; ++dx) {
 					for (int dy = 0; dy < 3; ++dy) {
-						if (!s.items[dx][dy].type.empty()) {
-							int px, py;
-							app.cellGrid->gridToPixel(s.gridX + dx, s.gridY + dy, px, py);
-
-							// Render the item's symbol using TTF (if you want ASCII, see below)
-							char symbol = s.items[dx][dy].symbol;
-							std::string symbolStr(1, symbol);
-
-							TTF_Font* font = app.foodManager ? app.foodManager->getFont() : nullptr;
-
-							if (font) {
-								SDL_Color color = { 255, 255, 0, 255 }; // Yellow for food, or choose based on type
-								SDL_Surface* surface = TTF_RenderText_Solid(font, symbolStr.c_str(), color);
-								if (surface) {
-									SDL_Texture* texture = SDL_CreateTextureFromSurface(app.renderer, surface);
-									if (texture) {
-										SDL_Rect dstRect = { px, py, surface->w, surface->h };
-										SDL_RenderCopy(app.renderer, texture, nullptr, &dstRect);
-										SDL_DestroyTexture(texture);
-									}
-									SDL_FreeSurface(surface);
-								}
-							}
-						}
+						int px, py;
+						app.cellGrid->gridToPixel(farm.gridX + dx, farm.gridY + dy, px, py);
+						SDL_Rect rect = { px, py, GRID_SIZE, GRID_SIZE };
+						SDL_RenderFillRect(app.renderer, &rect);
 					}
 				}
 			}
@@ -216,6 +362,12 @@ void runMainLoop(sdl& app) {
         // This is rendered AFTER houses and units to ensure food is always visible on top
         if (app.foodManager) {
             app.foodManager->renderFood(app.renderer);
+        }
+
+        // Render seeds (world seed items with '.' symbols)
+        // This is rendered AFTER food to ensure seeds are visible
+        if (app.seedManager) {
+            app.seedManager->renderSeeds(app.renderer);
         }
 
         SDL_RenderPresent(app.renderer);

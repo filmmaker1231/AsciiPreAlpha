@@ -17,6 +17,8 @@ public:
     int health;
 	int hunger = 100;
 	std::vector<std::string> inventory;
+	int carriedFoodId = -1; // ID of food being carried, -1 if none
+	int carriedSeedId = -1; // ID of seed being carried, -1 if none
 	Uint32 lastHungerUpdate = 0;
 	Uint32 lastHungerDebugPrint = 0;
     int id;
@@ -31,7 +33,7 @@ public:
 	std::priority_queue<Action, std::vector<Action>, ActionComparator> actionQueue;
 
 	  void addAction(const Action& action);
-	  void processAction(CellGrid& cellGrid, std::vector<Food>& foods);
+	  void processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vector<Seed>& seeds);
 	  void tryFindAndPathToFood(CellGrid& cellGrid, std::vector<Food>& foods);
 	  void bringItemToHouse(const std::string& itemType) {
 		  addAction(Action(ActionType::BringItemToHouse, 5, itemType));

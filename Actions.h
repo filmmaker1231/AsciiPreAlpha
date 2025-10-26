@@ -7,6 +7,10 @@ enum class ActionType {
 	BuildHouse,
     BringItemToHouse,
     EatFromHouse,
+    CollectSeed,
+    BuildFarm,
+    PlantSeed,
+    HarvestFood,
     // Add more as needed
 };
 
