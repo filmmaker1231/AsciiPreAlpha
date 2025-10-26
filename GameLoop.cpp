@@ -363,7 +363,7 @@ void runMainLoop(sdl& app) {
 					int dist = abs(thiefGridX - unitGridX) + abs(thiefGridY - unitGridY);
 					
 					// If thief is within 5 tiles, start or continue fighting
-					if (dist <= 50) {
+					if (dist <= 5) {
 						bool alreadyFighting = false;
 						if (!unit.actionQueue.empty()) {
 							Action current = unit.actionQueue.top();
@@ -394,6 +394,11 @@ void runMainLoop(sdl& app) {
 							// Clear the stolen from tracking after the hit (unit stays clamped for 2 seconds)
 							unit.stolenFromByUnitId = -1;
 							unit.fightingTargetId = -1;
+							
+							// Clear the thief's action queue so they return to default Wander behavior
+							std::priority_queue<Action, std::vector<Action>, ActionComparator> empty;
+							std::swap(thiefUnit->actionQueue, empty);
+							
 							// Speed will be restored when unclamped (line 428) or fight ends
 						}
 						
