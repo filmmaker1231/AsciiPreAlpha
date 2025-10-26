@@ -78,12 +78,11 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods) {
             }
             
             // If still no path found, pop and let GameLoop re-add Wander
-            // This allows the unit to try again next time
             if (path.empty() && !actionQueue.empty()) {
                 actionQueue.pop();
             }
         }
-        // If path exists, keep the Wander action and continue following it
+        // If path exists, keep following it with the Wander action active
         break;
     }
 	case ActionType::Eat: {
@@ -123,8 +122,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods) {
 			// Wait for movement to finish
 			break;
 		}
-		// Build house: add to HouseManager (keep cells walkable)
-		// Houses are now walkable, so we don't set isWalkable = false
+		// Build house: add to HouseManager without marking cells as non-walkable
 		if (g_HouseManager) {
 			g_HouseManager->addHouse(House(id, houseGridX, houseGridY));
 		}
