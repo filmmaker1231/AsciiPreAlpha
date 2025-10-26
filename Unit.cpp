@@ -11,6 +11,8 @@ HouseManager* g_HouseManager = nullptr;
 FarmManager* g_FarmManager = nullptr;
 
 // Global seed ID counter for all seed generation
+// Note: This is safe for single-threaded SDL game. Overflow is not a practical concern
+// as it would require billions of seeds to be generated in a single game session.
 static int g_nextSeedId = 1;
 
 
