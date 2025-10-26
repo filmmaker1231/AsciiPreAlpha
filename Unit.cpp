@@ -4,6 +4,7 @@
 #include <random>
 #include <iostream>
 #include <SDL.h>
+#include <limits>
 
 void Unit::addAction(const Action& action) {
     if (actionQueue.empty()) {
@@ -24,7 +25,8 @@ void Unit::addAction(const Action& action) {
     }
 }
 
-void Unit::processAction(CellGrid& cellGrid) {
+void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods) {
+
     // First, handle any path movement (works with or without actions)
     // This allows manually-assigned paths (e.g., via P+click) to be followed
     if (!path.empty()) {
@@ -81,13 +83,63 @@ void Unit::processAction(CellGrid& cellGrid) {
         }
         break;
     }
-    case ActionType::Eat:
-        // ... eat logic ...
-        actionQueue.pop();
-        break;
-    default:
-        // Handle unknown action types
-        actionQueue.pop();
-        break;
+	case ActionType::Eat: {
+		// Check if at food location
+		int gridX, gridY;
+		cellGrid.pixelToGrid(x, y, gridX, gridY);
+
+		// Find food at this location
+		auto it = std::find_if(foods.begin(), foods.end(), [&](const Food& food) {
+			int fx, fy;
+			cellGrid.pixelToGrid(food.x, food.y, fx, fy);
+			return fx == gridX && fy == gridY;
+			});
+
+		if (it != foods.end()) {
+			// Eat the food
+			hunger = 100;
+			foods.erase(it);
+			std::cout << "Unit " << name << " (id " << id << ") ate food at (" << gridX << ", " << gridY << ")\n";
+		}
+		actionQueue.pop();
+		break;
+	}
+	default:
+		actionQueue.pop();
+		break;
+	}
+}
+
+void Unit::tryFindAndPathToFood(CellGrid& cellGrid, std::vector<Food>& foods) {
+    if (foods.empty()) return;
+
+    // Find nearest food using cell grid for accuracy
+    int gridX, gridY;
+    cellGrid.pixelToGrid(x, y, gridX, gridY);
+
+    int minDist = std::numeric_limits<int>::max();
+    int nearestFoodIdx = -1;
+    int foodGridX = 0, foodGridY = 0;
+
+    for (size_t i = 0; i < foods.size(); ++i) {
+        int fx, fy;
+        cellGrid.pixelToGrid(foods[i].x, foods[i].y, fx, fy);
+        int dist = abs(fx - gridX) + abs(fy - gridY);
+        if (dist < minDist) {
+            minDist = dist;
+            nearestFoodIdx = static_cast<int>(i);
+            foodGridX = fx;
+            foodGridY = fy;
+        }
+    }
+
+    if (nearestFoodIdx != -1) {
+        // Path to the food
+        auto newPath = aStarFindPath(gridX, gridY, foodGridX, foodGridY, cellGrid);
+        if (!newPath.empty()) {
+            path = newPath;
+            // Add Eat action with priority 9
+            addAction(Action(ActionType::Eat, 9));
+        }
     }
 }

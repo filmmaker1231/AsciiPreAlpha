@@ -37,6 +37,10 @@ bool UnitManager::initializeFont(const char* fontPath, int fontSize) {
 void UnitManager::spawnUnit(int x, int y, const std::string& name) {
     static int nextId = 1; // Static to ensure unique IDs
     units.emplace_back(x, y, '@', name, 100, nextId++);
+	Unit& unit = units.back();
+    unit.hunger = 100;
+	unit.lastHungerUpdate = SDL_GetTicks();
+	unit.lastHungerDebugPrint = SDL_GetTicks();
     std::cout << "Spawned unit '" << name << "' at (" << x << ", " << y << ") with id " << (nextId-1) << std::endl;
 }
 

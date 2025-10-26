@@ -4,6 +4,8 @@
 #include <vector>
 #include <queue>
 #include "Actions.h"
+#include <SDL.h>
+#include "Food.h"
 
 class CellGrid; // Forward declaration
 
@@ -13,6 +15,9 @@ public:
     int x, y;           // Position on the grid
     char symbol;        // Character to display (e.g., '@')
     int health;
+	int hunger = 100;
+	Uint32 lastHungerUpdate = 0;
+	Uint32 lastHungerDebugPrint = 0;
     int id;
     unsigned int moveDelay;      // Delay in milliseconds between moves
     unsigned int lastMoveTime;   // Last time the unit moved (in SDL ticks)
@@ -23,12 +28,17 @@ public:
 	std::priority_queue<Action, std::vector<Action>, ActionComparator> actionQueue;
 
 	  void addAction(const Action& action);
-	  void processAction(CellGrid& cellGrid);
-
+	  void processAction(CellGrid& cellGrid, std::vector<Food>& foods);
+	  void tryFindAndPathToFood(CellGrid& cellGrid, std::vector<Food>& foods);
 
 	
 
-     Unit(int x, int y, char symbol, const std::string& name, int health = 100, int id = 0)
-		 : x(x), y(y), symbol(symbol), name(name), health(health), id(id), moveDelay(200), lastMoveTime(0) {
-	 }
+	  Unit(int x, int y, char symbol, const std::string& name, int health = 100, int id = 0)
+		  : x(x), y(y), symbol(symbol), name(name), health(health), hunger(100), lastHungerUpdate(0), lastHungerDebugPrint(0), id(id), moveDelay(200), lastMoveTime(0) {
+	  }
 };
+
+
+
+
+

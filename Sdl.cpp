@@ -25,6 +25,11 @@ sdl runSdl() {
     if (!state.unitManager->initializeFont(nullptr, 24)) {
         std::cerr << "Warning: Failed to initialize font for units." << std::endl;
     }
+
+	state.foodManager = new FoodManager();
+	if (!state.foodManager->initializeFont(nullptr, 24)) {
+		std::cerr << "Warning: Failed to initialize font for units." << std::endl;
+	}
     
     
     
