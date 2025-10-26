@@ -17,7 +17,7 @@ void runMainLoop(sdl& app) {
     bool running = true;
     SDL_Event event;
     static int frameCounter = 0;
-    const int WANDER_READD_FRAMES = 4; // Try re-adding Wander once every 4 frames
+    const int HUNGER_CHECK_FRAMES = 60; // Check hunger once every 60 frames (~1 second at 60 FPS)
 
     while (running) {
         // Handle events
@@ -55,7 +55,8 @@ void runMainLoop(sdl& app) {
             // --- HUNGER LOGIC END ---
 
             // If hungry and not already seeking food, try to find food
-            if (unit.hunger <= 99) {
+            // Only check this periodically to optimize performance
+            if ((frameCounter % HUNGER_CHECK_FRAMES == 0) && unit.hunger <= 99) {
                 bool alreadySeekingFood = false;
                 if (!unit.actionQueue.empty()) {
                     Action current = unit.actionQueue.top();
@@ -68,8 +69,10 @@ void runMainLoop(sdl& app) {
                 }
             }
 
-            // Process queued actions
-            unit.processAction(*app.cellGrid, app.foodManager->getFood());
+            // Process queued actions - only if there's something to process
+            if (!unit.actionQueue.empty() || !unit.path.empty()) {
+                unit.processAction(*app.cellGrid, app.foodManager->getFood());
+            }
 
             // If no actions left, re-add Wander
             if (unit.actionQueue.empty()) {
