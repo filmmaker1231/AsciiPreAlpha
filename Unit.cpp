@@ -913,7 +913,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 		
 		// If stolenFromByUnitId is -1, the fight is over, so remove this action
 		// We're processing this Fight action because it's at the top of the queue
-		if (stolenFromByUnitId == -1 && !actionQueue.empty() && actionQueue.top().type == ActionType::Fight) {
+		if (stolenFromByUnitId == -1 && actionQueue.top().type == ActionType::Fight) {
 			actionQueue.pop();
 		}
 		break;
