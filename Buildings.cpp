@@ -1,2 +1,2 @@
 #include "Buildings.h"
-StockpileManager* StockpileManager = nullptr;
+StockpileManager* g_StockpileManager = nullptr;

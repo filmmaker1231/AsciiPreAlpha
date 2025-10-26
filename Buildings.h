@@ -23,3 +23,6 @@ public:
     void addStockpile(const Stockpile& s) { stockpiles.push_back(s); }
     // Add more as needed
 };
+
+// Global stockpile manager instance
+extern StockpileManager* g_StockpileManager;

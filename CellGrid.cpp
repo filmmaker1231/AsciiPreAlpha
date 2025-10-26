@@ -3,7 +3,7 @@
 #include <SDL.h>
 
 
-void CellGrid::gridToPixel(int gridX, int gridY, int& pixelX, int& pixelY) {
+void CellGrid::gridToPixel(int gridX, int gridY, int& pixelX, int& pixelY) const {
 pixelX = gridX * GRID_SIZE;
 pixelY = gridY * GRID_SIZE;
 }
