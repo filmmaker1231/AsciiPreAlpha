@@ -86,7 +86,8 @@ void runMainLoop(sdl& app) {
 
 
 			// --- EAT FROM HOUSE LOGIC ---
-			// If hunger is below 50, try to eat from house storage
+			// If hunger is below 50, try to eat from house storage first
+			bool tryingToEatFromHouse = false;
 			if ((frameCounter % HUNGER_CHECK_FRAMES == 0) && unit.hunger < 50) {
 				bool alreadyEatingFromHouse = false;
 				if (!unit.actionQueue.empty()) {
@@ -102,6 +103,7 @@ void runMainLoop(sdl& app) {
 							house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
 							if (house.hasItem("food")) {
 								unit.eatFromHouse();
+								tryingToEatFromHouse = true;
 							}
 							break;
 						}
@@ -111,9 +113,10 @@ void runMainLoop(sdl& app) {
 
 
 
-            // If hungry and not already seeking food, try to find food
+            // If hungry and not already seeking food, try to find food from world
             // Only check this periodically to optimize performance
-            if ((frameCounter % HUNGER_CHECK_FRAMES == 0) && unit.hunger <= 99) {
+            // Skip if unit is trying to eat from house (hunger < 50 and house has food)
+            if ((frameCounter % HUNGER_CHECK_FRAMES == 0) && unit.hunger <= 99 && !tryingToEatFromHouse) {
                 bool alreadySeekingFood = false;
                 if (!unit.actionQueue.empty()) {
                     Action current = unit.actionQueue.top();
