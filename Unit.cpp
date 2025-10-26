@@ -86,29 +86,38 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods) {
         break;
     }
 	case ActionType::Eat: {
-		// Check if at food location
+		// Check if at house location to eat from stored food
 		int gridX, gridY;
 		cellGrid.pixelToGrid(x, y, gridX, gridY);
-
-		// Find food at this location
-		auto it = std::find_if(foods.begin(), foods.end(), [&](const Food& food) {
-			int fx, fy;
-			cellGrid.pixelToGrid(food.x, food.y, fx, fy);
-			return fx == gridX && fy == gridY;
-			});
-
-		if (it != foods.end()) {
-			// Eat the food
-			hunger = 100;
-			foods.erase(it);
-			std::cout << "Unit " << name << " (id " << id << ") ate food at (" << gridX << ", " << gridY << ")\n";
-			actionQueue.pop();
+		
+		if (isAtHouse(gridX, gridY) && g_HouseManager) {
+			// Try to eat from house storage
+			for (auto& house : g_HouseManager->houses) {
+				if (house.ownerUnitId == id && !house.foodIds.empty()) {
+					// Eat food from house
+					int foodId = house.foodIds.back();
+					house.foodIds.pop_back();
+					hunger = 100;
+					std::cout << "Unit " << name << " (id " << id << ") ate food " << foodId << " from house\n";
+					actionQueue.pop();
+					break;
+				}
+			}
+			// If we're here and didn't eat, no food in house, pop action
+			if (!actionQueue.empty() && actionQueue.top().type == ActionType::Eat) {
+				actionQueue.pop();
+			}
 		} else if (path.empty()) {
-			// No food here and no path to follow - give up on this Eat action
-			// (food was likely taken by another unit or unreachable)
-			actionQueue.pop();
+			// Not at house and no path - need to path to house
+			auto newPath = aStarFindPath(gridX, gridY, houseGridX, houseGridY, cellGrid);
+			if (!newPath.empty()) {
+				path = newPath;
+			} else {
+				// Can't reach house, give up
+				actionQueue.pop();
+			}
 		}
-		// If path is not empty, keep the Eat action and continue moving toward food
+		// If path is not empty, keep the Eat action and continue moving to house
 		break;
 	}
 	case ActionType::BuildHouse: {
@@ -128,6 +137,53 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods) {
 		}
 		std::cout << "Unit " << name << " built a house at (" << houseGridX << ", " << houseGridY << ")\n";
 		actionQueue.pop();
+		break;
+	}
+	case ActionType::BringFoodToHouse: {
+		int gridX, gridY;
+		cellGrid.pixelToGrid(x, y, gridX, gridY);
+		
+		if (carryingFoodId == -1) {
+			// Phase 1: Not carrying food, need to pick it up
+			// Find food at this location
+			auto it = std::find_if(foods.begin(), foods.end(), [&](const Food& food) {
+				int fx, fy;
+				cellGrid.pixelToGrid(food.x, food.y, fx, fy);
+				return fx == gridX && fy == gridY;
+			});
+			
+			if (it != foods.end()) {
+				// Pick up the food
+				carryingFoodId = it->foodId;
+				foods.erase(it);
+				std::cout << "Unit " << name << " picked up food " << carryingFoodId << "\n";
+				// Now path to house
+				path.clear();
+			} else if (path.empty()) {
+				// No food here and no path - give up
+				actionQueue.pop();
+			}
+		} else {
+			// Phase 2: Carrying food, need to store it at house
+			if (isAtHouse(gridX, gridY)) {
+				// At house - store the food
+				if (g_HouseManager) {
+					for (auto& house : g_HouseManager->houses) {
+						if (house.ownerUnitId == id) {
+							house.foodIds.push_back(carryingFoodId);
+							std::cout << "Unit " << name << " stored food " << carryingFoodId << " in house\n";
+							carryingFoodId = -1;
+							actionQueue.pop();
+							break;
+						}
+					}
+				}
+			} else if (path.empty()) {
+				// Need to path to house
+				auto newPath = aStarFindPath(gridX, gridY, houseGridX, houseGridY, cellGrid);
+				if (!newPath.empty()) path = newPath;
+			}
+		}
 		break;
 	}
 	default:
@@ -160,12 +216,31 @@ void Unit::tryFindAndPathToFood(CellGrid& cellGrid, std::vector<Food>& foods) {
     }
 
     if (nearestFoodIdx != -1) {
-        // Path to the food
+        // Path to the food to bring it home
         auto newPath = aStarFindPath(gridX, gridY, foodGridX, foodGridY, cellGrid);
         if (!newPath.empty()) {
             path = newPath;
-            // Add Eat action with priority 9
-            addAction(Action(ActionType::Eat, 9));
+            // Add BringFoodToHouse action with priority 9
+            addAction(Action(ActionType::BringFoodToHouse, 9));
         }
     }
+}
+
+void Unit::tryEatFromHouse() {
+    // Check if house has food
+    if (g_HouseManager) {
+        for (auto& house : g_HouseManager->houses) {
+            if (house.ownerUnitId == id && !house.foodIds.empty()) {
+                // House has food, add Eat action
+                addAction(Action(ActionType::Eat, 10)); // High priority
+                return;
+            }
+        }
+    }
+}
+
+bool Unit::isAtHouse(int gridX, int gridY) const {
+    // Check if unit is within their house (3x3 area)
+    return (gridX >= houseGridX && gridX < houseGridX + 3 &&
+            gridY >= houseGridY && gridY < houseGridY + 3);
 }

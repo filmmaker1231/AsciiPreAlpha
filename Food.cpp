@@ -67,6 +67,30 @@ void FoodManager::renderFood(SDL_Renderer* renderer) {
     }
 }
 
+void FoodManager::renderFoodSymbol(SDL_Renderer* renderer, int x, int y) {
+    if (!font) {
+        return;
+    }
+    
+    SDL_Color color = {255, 255, 0, 255}; // Yellow color
+    
+    // Create surface with the food symbol
+    SDL_Surface* surface = TTF_RenderText_Solid(font, "f", color);
+    if (!surface) {
+        return;
+    }
+    
+    // Create texture from surface
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+    if (texture) {
+        SDL_Rect dstRect = {x, y, surface->w, surface->h};
+        SDL_RenderCopy(renderer, texture, nullptr, &dstRect);
+        SDL_DestroyTexture(texture);
+    }
+    
+    SDL_FreeSurface(surface);
+}
+
 std::vector<Food>& FoodManager::getFood() {
     return food;
 }

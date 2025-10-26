@@ -60,12 +60,18 @@ void runMainLoop(sdl& app) {
                 bool alreadySeekingFood = false;
                 if (!unit.actionQueue.empty()) {
                     Action current = unit.actionQueue.top();
-                    if (current.type == ActionType::Eat) {
+                    if (current.type == ActionType::Eat || current.type == ActionType::BringFoodToHouse) {
                         alreadySeekingFood = true;
                     }
                 }
                 if (!alreadySeekingFood) {
-                    unit.tryFindAndPathToFood(*app.cellGrid, app.foodManager->getFood());
+                    // If hunger below 50, try to eat from house
+                    if (unit.hunger < 50) {
+                        unit.tryEatFromHouse();
+                    } else {
+                        // Otherwise, try to find food to bring home
+                        unit.tryFindAndPathToFood(*app.cellGrid, app.foodManager->getFood());
+                    }
                 }
             }
 
@@ -103,6 +109,21 @@ void runMainLoop(sdl& app) {
                         app.cellGrid->gridToPixel(s.gridX + dx, s.gridY + dy, px, py);
                         SDL_Rect rect = { px, py, GRID_SIZE, GRID_SIZE };
                         SDL_RenderFillRect(app.renderer, &rect);
+                    }
+                }
+                
+                // Render food items in house
+                if (!s.foodIds.empty() && app.foodManager) {
+                    // Show food symbols for each stored food item
+                    int foodCount = static_cast<int>(s.foodIds.size());
+                    int idx = 0;
+                    for (int dy = 0; dy < 3 && idx < foodCount; ++dy) {
+                        for (int dx = 0; dx < 3 && idx < foodCount; ++dx) {
+                            int px, py;
+                            app.cellGrid->gridToPixel(s.gridX + dx, s.gridY + dy, px, py);
+                            app.foodManager->renderFoodSymbol(app.renderer, px, py);
+                            idx++;
+                        }
                     }
                 }
             }
