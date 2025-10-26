@@ -100,8 +100,13 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods) {
 			hunger = 100;
 			foods.erase(it);
 			std::cout << "Unit " << name << " (id " << id << ") ate food at (" << gridX << ", " << gridY << ")\n";
+			actionQueue.pop();
+		} else if (path.empty()) {
+			// No food here and no path to follow - give up on this Eat action
+			// (food was likely taken by another unit or unreachable)
+			actionQueue.pop();
 		}
-		actionQueue.pop();
+		// If path is not empty, keep the Eat action and continue moving toward food
 		break;
 	}
 	default:
