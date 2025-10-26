@@ -819,6 +819,89 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 		actionQueue.pop();
 		break;
 	}
+	case ActionType::StealFood: {
+		// Steal food from the nearest house with food
+		// 1. Find the nearest house with food
+		int unitGridX, unitGridY;
+		cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+		
+		int minDist = std::numeric_limits<int>::max();
+		House* targetHouse = nullptr;
+		int targetHouseGridX = -1, targetHouseGridY = -1;
+		
+		if (g_HouseManager) {
+			for (auto& house : g_HouseManager->houses) {
+				if (house.hasFood()) {
+					// Calculate distance to house
+					int dist = abs(house.gridX - unitGridX) + abs(house.gridY - unitGridY);
+					if (dist < minDist) {
+						minDist = dist;
+						targetHouse = &house;
+						targetHouseGridX = house.gridX;
+						targetHouseGridY = house.gridY;
+					}
+				}
+			}
+		}
+		
+		if (!targetHouse) {
+			// No house with food found, give up
+			actionQueue.pop();
+			break;
+		}
+		
+		// 2. Navigate to the target house if not there
+		if (unitGridX != targetHouseGridX || unitGridY != targetHouseGridY) {
+			if (path.empty()) {
+				auto newPath = aStarFindPath(unitGridX, unitGridY, targetHouseGridX, targetHouseGridY, cellGrid);
+				if (!newPath.empty()) path = newPath;
+			}
+			break;
+		}
+		
+		// 3. At house, steal and eat food from storage
+		if (targetHouse->hasFood()) {
+			int foodId = targetHouse->getFirstFoodId();
+			if (foodId != -1) {
+				// Find and remove the food from world
+				auto it = std::find_if(foods.begin(), foods.end(), [&](const Food& food) {
+					return food.foodId == foodId;
+				});
+				if (it != foods.end()) {
+					// Drop seeds before eating the food
+					std::random_device rd;
+					std::mt19937 gen(rd());
+					std::uniform_int_distribution<> seedDist(1, 100);
+					int numSeeds = (seedDist(gen) <= 15) ? 2 : 1; // 15% chance for 2 seeds
+					
+					int pixelX, pixelY;
+					cellGrid.gridToPixel(unitGridX, unitGridY, pixelX, pixelY);
+					
+					// Seed drops are owned by the house owner (not the thief)
+					for (int i = 0; i < numSeeds; ++i) {
+						// Create new seed at eating location (in the victim's home)
+						Seed newSeed(pixelX, pixelY, "seed", g_nextSeedId++);
+						
+						// Seed dropped in home, owned by the home owner (victim)
+						newSeed.ownedByHouseId = targetHouse->ownerUnitId;
+						
+						seeds.push_back(newSeed);
+						std::cout << "Dropped seed " << newSeed.seedId << " in house at (" << unitGridX << ", " << unitGridY << ") owned by unit " << targetHouse->ownerUnitId << "\n";
+					}
+					
+					// Eat the stolen food
+					hunger = 100;
+					targetHouse->removeFoodById(foodId);
+					foods.erase(it);
+					
+					// Print the stealing message
+					std::cout << "Food stolen from home (" << targetHouseGridX << ", " << targetHouseGridY << ") by " << name << "\n";
+				}
+			}
+		}
+		actionQueue.pop();
+		break;
+	}
 
 
 	default:

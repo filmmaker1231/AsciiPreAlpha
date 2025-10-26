@@ -16,11 +16,13 @@ public:
     char symbol;        // Character to display (e.g., '@')
     int health;
 	int hunger = 100;
+	int morality = 100; // Morality starts at 100, minimum 0
 	std::vector<std::string> inventory;
 	int carriedFoodId = -1; // ID of food being carried, -1 if none
 	int carriedSeedId = -1; // ID of seed being carried, -1 if none
 	Uint32 lastHungerUpdate = 0;
 	Uint32 lastHungerDebugPrint = 0;
+	Uint32 lastMoralityUpdate = 0;
     int id;
     unsigned int moveDelay;      // Delay in milliseconds between moves
     unsigned int lastMoveTime;   // Last time the unit moved (in SDL ticks)
@@ -45,7 +47,7 @@ public:
 	
 
 	  Unit(int x, int y, char symbol, const std::string& name, int health = 100, int id = 0)
-		  : x(x), y(y), symbol(symbol), name(name), health(health), hunger(100), lastHungerUpdate(0), lastHungerDebugPrint(0), id(id), moveDelay(200), lastMoveTime(0) {
+		  : x(x), y(y), symbol(symbol), name(name), health(health), hunger(100), morality(100), lastHungerUpdate(0), lastHungerDebugPrint(0), lastMoralityUpdate(0), id(id), moveDelay(200), lastMoveTime(0) {
 	  }
 };
 
