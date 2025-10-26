@@ -225,17 +225,17 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods) {
             if (it != foods.end()) {
                 if (myHouse->addFood(carriedFoodId)) {
                     it->carriedByUnitId = -1;
-                    it->ownedByHouseId = id; // Mark as owned by this house
-                    // Position food in house storage (use first empty slot position)
-                    for (int dx = 0; dx < 3; ++dx) {
-                        for (int dy = 0; dy < 3; ++dy) {
+                    it->ownedByHouseId = myHouse->ownerUnitId; // Mark as owned by house owner
+                    // Position food in house storage (find which slot it was placed in)
+                    bool positioned = false;
+                    for (int dx = 0; dx < 3 && !positioned; ++dx) {
+                        for (int dy = 0; dy < 3 && !positioned; ++dy) {
                             if (myHouse->foodIds[dx][dy] == carriedFoodId) {
                                 cellGrid.gridToPixel(houseGridX + dx, houseGridY + dy, it->x, it->y);
-                                goto food_positioned;
+                                positioned = true;
                             }
                         }
                     }
-                    food_positioned:
                     carriedFoodId = -1;
                     auto invIt = std::find(inventory.begin(), inventory.end(), "food");
                     if (invIt != inventory.end()) {
