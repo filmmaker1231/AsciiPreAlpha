@@ -28,8 +28,11 @@ public:
     unsigned int lastMoveTime;   // Last time the unit moved (in SDL ticks)
 	int houseGridX = -1; // Grid X of assigned house location
 	int houseGridY = -1; // Grid Y of assigned house location
-
-
+	int stolenFromByUnitId = -1; // ID of unit who stole from this unit, -1 if none
+	int justStoleFromUnitId = -1; // ID of unit this unit just stole from (cleared after processing)
+	int fightingTargetId = -1; // ID of unit currently being fought, -1 if none
+	Uint32 fightStartTime = 0; // Time when fight started (for 2-second clamp)
+	bool isClamped = false; // Whether unit is clamped during fight
 
 	std::vector<std::pair<int, int>> path;
 	std::priority_queue<Action, std::vector<Action>, ActionComparator> actionQueue;
