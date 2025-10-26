@@ -241,7 +241,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
             if (it != foods.end()) {
                 carriedFoodId = it->foodId;
                 it->carriedByUnitId = id;
-                it->x = x;  // Update position to unit's position
+                it->x = x;  // Synchronize carried item to unit position
                 it->y = y;
                 inventory.push_back("food"); // Keep for backward compatibility
                 std::cout << "Unit " << name << " picked up food (id " << it->foodId << ") to bring home.\n";
@@ -424,7 +424,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 			if (closestIdx >= 0 && closestIdx < static_cast<int>(seeds.size())) {
 				carriedSeedId = seeds[closestIdx].seedId;
 				seeds[closestIdx].carriedByUnitId = id;
-				seeds[closestIdx].x = x;  // Update position to unit's position
+				seeds[closestIdx].x = x;  // Synchronize carried item to unit position
 				seeds[closestIdx].y = y;
 				std::cout << "Unit " << name << " picked up seed (id " << seeds[closestIdx].seedId << ") to bring home.\n";
 			} else {
@@ -616,7 +616,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 				});
 				if (it != seeds.end()) {
 					it->carriedByUnitId = id;
-					it->x = x;  // Update position to unit's position
+					it->x = x;  // Synchronize carried item to unit position
 					it->y = y;
 					std::cout << "Unit " << name << " picked up seed (id " << seedId << ") from house to plant.\n";
 				}
