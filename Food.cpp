@@ -40,6 +40,22 @@ void FoodManager::spawnFood(int x, int y, const std::string& type) {
     std::cout << "Spawned food '" << type << "' at (" << x << ", " << y << ") with id " << (nextFoodId-1) << std::endl;
 }
 
+bool FoodManager::deleteFoodAt(int x, int y) {
+    // Use a larger click area to make it easier to select food
+    const int clickRadius = 20;
+    
+    for (auto it = food.begin(); it != food.end(); ++it) {
+        // Check if click is within the food's bounding box
+        if (x >= it->x - clickRadius && x <= it->x + clickRadius &&
+            y >= it->y - clickRadius && y <= it->y + clickRadius) {
+            std::cout << "Deleted food '" << it->type << "' (id " << it->foodId << ") at (" << it->x << ", " << it->y << ")" << std::endl;
+            food.erase(it);
+            return true;
+        }
+    }
+    return false;
+}
+
 void FoodManager::renderFood(SDL_Renderer* renderer) {
     if (!font) {
         return;

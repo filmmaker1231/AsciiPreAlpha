@@ -42,6 +42,9 @@ public:
     // Spawn food with f symbol at given position
     void spawnFood(int x, int y, const std::string& type);
 
+    // Delete food at given pixel position (returns true if food was deleted)
+    bool deleteFoodAt(int x, int y);
+
     // Render all units
     void renderFood(SDL_Renderer* renderer);
 
