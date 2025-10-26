@@ -10,6 +10,9 @@
 HouseManager* g_HouseManager = nullptr;
 FarmManager* g_FarmManager = nullptr;
 
+// Global seed ID counter for all seed generation
+static int g_nextSeedId = 1;
+
 
 static int findClosestFoodIndex(const Unit& unit, const std::vector<Food>& foods, const CellGrid& cellGrid, int& outFoodGridX, int& outFoodGridY) {
     int unitGridX, unitGridY;
@@ -134,8 +137,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 			
 			for (int i = 0; i < numSeeds; ++i) {
 				// Create new seed at food location
-				static int nextSeedId = 1;
-				Seed newSeed(pixelX, pixelY, "seed", nextSeedId++);
+				Seed newSeed(pixelX, pixelY, "seed", g_nextSeedId++);
 				
 				// Check if this location is in the unit's home
 				if (g_HouseManager) {
@@ -331,8 +333,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 					
 					for (int i = 0; i < numSeeds; ++i) {
 						// Create new seed at eating location (in home)
-						static int nextSeedId = 1000; // Start from higher number to avoid conflicts
-						Seed newSeed(pixelX, pixelY, "seed", nextSeedId++);
+						Seed newSeed(pixelX, pixelY, "seed", g_nextSeedId++);
 						
 						// Seed dropped in home, owned by homeowner
 						newSeed.ownedByHouseId = id;
