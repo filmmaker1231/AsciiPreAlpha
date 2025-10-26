@@ -7,7 +7,7 @@
 //#include "Unit.h"
 //#include "Food.h"
 //#include "Seed.h"
-//#include "Stockpile.h"
+//#include "House.h"
 
 // Example 1: Initialize and update the cell grid
 void example1_InitializeAndUpdate() {
@@ -20,11 +20,11 @@ void example1_InitializeAndUpdate() {
     std::unordered_map<int, Unit> units;
     std::vector<Food> foods;
     std::vector<Seed> seeds;
-    std::vector<Stockpile> stockpiles;
+    std::vector<House> houses;
     std::unordered_map<GridKey, PlacedTile> placedTiles;
     
     // Update all cells with current game state (do this every frame)
-    cellGrid.updateAll(units, foods, seeds, stockpiles, placedTiles);
+    cellGrid.updateAll(units, foods, seeds, houses, placedTiles);
 }
 
 // Example 2: Find nearest food using cell grid (O(r²) instead of O(n))
@@ -213,27 +213,27 @@ void example6_FindNearestWalkableCell(
 void example7_OptimizedFoodCollectionAI(
     Unit& unit,
     const std::vector<Food>& foods,
-    const std::vector<Stockpile>& stockpiles,
+    const std::vector<House>& houses,
     CellGrid& cellGrid,
     int gridWidth,
     int gridHeight
 ) {
-    // Check if unit's stockpile has space
+    // Check if unit's house has space
     bool hasSpace = false;
-    const Stockpile* homeStockpile = nullptr;
+    const House* homeHouse = nullptr;
     
-    for (const auto& sp : stockpiles) {
+    for (const auto& sp : houses) {
         if (sp.ownerUnitId == unit.id) {
-            homeStockpile = &sp;
+            homeHouse = &sp;
             // Check if any tile has no food
             hasSpace = std::any_of(sp.tiles.begin(), sp.tiles.end(),
-                [](const StockpileTile& t) { return !t.hasFood; });
+                [](const HouseTile& t) { return !t.hasFood; });
             break;
         }
     }
     
-    if (!hasSpace || !homeStockpile) {
-        return; // No stockpile or no space
+    if (!hasSpace || !homeHouse) {
+        return; // No house or no space
     }
     
     // Use cell grid to find nearest food (fast)

@@ -7,7 +7,7 @@
 #include <limits>
 #include "Buildings.h"
 
-StockpileManager* StockpileManager = nullptr;
+HouseManager* HouseManager = nullptr;
 
 
 void Unit::addAction(const Action& action) {
@@ -124,15 +124,15 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods) {
 			// Wait for movement to finish
 			break;
 		}
-		// Build house: mark 3x3 as solid, add to StockpileManager
+		// Build house: mark 3x3 as solid, add to HouseManager
 		for (int dx = 0; dx < 3; ++dx) {
 			for (int dy = 0; dy < 3; ++dy) {
 				MapCell* cell = cellGrid.getCell(houseGridX + dx, houseGridY + dy);
 				if (cell) cell->isWalkable = false;
 			}
 		}
-		if (g_StockpileManager) {
-			g_StockpileManager->addStockpile(Stockpile(id, houseGridX, houseGridY));
+		if (g_HouseManager) {
+			g_HouseManager->addHouse(House(id, houseGridX, houseGridY));
 		}
 		std::cout << "Unit " << name << " built a house at (" << houseGridX << ", " << houseGridY << ")\n";
 		actionQueue.pop();

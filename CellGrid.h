@@ -17,7 +17,7 @@ struct MapCell {
     std::vector<int> unitIds;           // IDs of units in this cell
     std::vector<int> foodIds;           // IDs of food items in this cell
     std::vector<int> seedIds;           // IDs of seeds in this cell
-    std::vector<int> stockpileIds;      // IDs of stockpiles overlapping this cell
+    std::vector<int> houseIds;          // IDs of houses overlapping this cell
     
     // Tile information
     bool hasTile = false;               // Whether this cell has a placed tile
@@ -53,9 +53,9 @@ struct MapCell {
         return !seedIds.empty();
     }
     
-    // Check if cell has any stockpiles
-    bool hasStockpiles() const {
-        return !stockpileIds.empty();
+    // Check if cell has any houses
+    bool hasHouses() const {
+        return !houseIds.empty();
     }
 };
 

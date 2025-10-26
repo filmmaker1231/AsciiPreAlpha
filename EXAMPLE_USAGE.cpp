@@ -19,7 +19,7 @@ void gameLoop() {
     // 2. Your game entities
     std::vector<Unit> units;
     std::vector<Food> foods;
-    std::vector<Stockpile> stockpiles;
+    std::vector<House> houses;
     std::unordered_map<GridKey, PlacedTile> placedTiles;
     
     // 3. Game loop
@@ -32,7 +32,7 @@ void gameLoop() {
             units,           // Your unit vector
             scheduler,       // The update scheduler
             foods,           // Food in the world
-            stockpiles,      // Stockpile locations
+            houses,          // House locations
             placedTiles,     // Obstacles/world tiles
             gridWidth,       // World bounds
             gridHeight
@@ -208,7 +208,7 @@ PROFILING EXAMPLE
 void profileUpdatePerformance() {
     auto startTime = std::chrono::high_resolution_clock::now();
     
-    updateUnitsOptimized(units, scheduler, foods, stockpiles, 
+    updateUnitsOptimized(units, scheduler, foods, houses, 
                         placedTiles, gridWidth, gridHeight);
     
     auto endTime = std::chrono::high_resolution_clock::now();
