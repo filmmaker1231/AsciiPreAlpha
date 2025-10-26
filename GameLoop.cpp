@@ -7,6 +7,7 @@
 #include "Unit.h"
 #include "Food.h"
 #include "Buildings.h"
+#include "Pathfinding.h"
 
 #include <vector>
 #include <SDL.h>
@@ -340,6 +341,99 @@ void runMainLoop(sdl& app) {
 
 
 
+			// --- FIGHT LOGIC ---
+			// If a unit had food stolen from them and the thief is within 5 tiles, fight them
+			if (unit.stolenFromByUnitId != -1) {
+				// Find the thief unit
+				Unit* thiefUnit = nullptr;
+				for (auto& otherUnit : app.unitManager->getUnits()) {
+					if (otherUnit.id == unit.stolenFromByUnitId) {
+						thiefUnit = &otherUnit;
+						break;
+					}
+				}
+				
+				if (thiefUnit) {
+					// Calculate distance to thief
+					int unitGridX, unitGridY;
+					app.cellGrid->pixelToGrid(unit.x, unit.y, unitGridX, unitGridY);
+					int thiefGridX, thiefGridY;
+					app.cellGrid->pixelToGrid(thiefUnit->x, thiefUnit->y, thiefGridX, thiefGridY);
+					int dist = abs(thiefGridX - unitGridX) + abs(thiefGridY - unitGridY);
+					
+					// If thief is within 5 tiles, start or continue fighting
+					if (dist <= 5) {
+						bool alreadyFighting = false;
+						if (!unit.actionQueue.empty()) {
+							Action current = unit.actionQueue.top();
+							if (current.type == ActionType::Fight) {
+								alreadyFighting = true;
+							}
+						}
+						
+						if (!alreadyFighting) {
+							// Add Fight action with priority 9
+							unit.addAction(Action(ActionType::Fight, 9));
+							unit.fightingTargetId = thiefUnit->id;
+						}
+						
+						// Check if units are adjacent (distance 1 or 0)
+						if (dist <= 1 && !unit.isClamped) {
+							// Start the fight - clamp both units
+							unit.isClamped = true;
+							thiefUnit->isClamped = true;
+							unit.fightStartTime = now;
+							thiefUnit->fightStartTime = now;
+							
+							// Deal damage to the thief
+							thiefUnit->health -= 10;
+							std::cout << unit.name << " has hit " << thiefUnit->name 
+							          << " for 10 damage for stealing from them!" << std::endl;
+							
+							// Clear the stolen from tracking after the hit (unit stays clamped for 2 seconds)
+							unit.stolenFromByUnitId = -1;
+							unit.fightingTargetId = -1;
+							// Speed will be restored when unclamped (line 428) or fight ends
+						}
+						
+						// Update path to thief if not clamped
+						if (!unit.isClamped && (unit.path.empty() || frameCounter % 30 == 0)) {
+							// Continuously update path to follow the thief
+							auto newPath = aStarFindPath(unitGridX, unitGridY, thiefGridX, thiefGridY, *app.cellGrid);
+							if (!newPath.empty()) {
+								unit.path = newPath;
+								// Make this unit faster to catch up
+								unit.moveDelay = 30; // Faster than normal (normal is 50)
+							}
+						}
+					} else {
+						// Thief too far away, give up chase and restore normal speed
+						unit.stolenFromByUnitId = -1;
+						unit.fightingTargetId = -1;
+						unit.moveDelay = 50;
+					}
+				} else {
+					// Thief not found (might have been deleted), clear tracking and restore speed
+					unit.stolenFromByUnitId = -1;
+					unit.fightingTargetId = -1;
+					unit.moveDelay = 50;
+				}
+			}
+			
+			// Handle clamping during fight - prevent movement for 2 seconds
+			if (unit.isClamped && now - unit.fightStartTime >= 2000) {
+				// 2 seconds have passed, unclamp
+				unit.isClamped = false;
+				unit.fightStartTime = 0;
+				// Restore normal speed
+				unit.moveDelay = 50;
+			}
+			
+			// Prevent movement if clamped
+			if (unit.isClamped) {
+				unit.path.clear();
+			}
+
             // Process queued actions - only if there's something to process
             if (!unit.actionQueue.empty() || !unit.path.empty()) {
                 unit.processAction(*app.cellGrid, app.foodManager->getFood(), app.seedManager->getSeeds());
@@ -350,6 +444,83 @@ void runMainLoop(sdl& app) {
                 unit.addAction(Action(ActionType::Wander, 1));
             }
         }
+
+		// --- TRACK THEFT VICTIMS ---
+		// After all units have processed, check if any stealing occurred
+		for (auto& thief : app.unitManager->getUnits()) {
+			if (thief.justStoleFromUnitId != -1) {
+				// Find the victim and record the theft
+				for (auto& victim : app.unitManager->getUnits()) {
+					if (victim.id == thief.justStoleFromUnitId) {
+						victim.stolenFromByUnitId = thief.id;
+						std::cout << "Victim " << victim.name << " (id " << victim.id 
+						          << ") now knows that " << thief.name << " (id " << thief.id 
+						          << ") stole from them" << std::endl;
+						break;
+					}
+				}
+				// Clear the flag
+				thief.justStoleFromUnitId = -1;
+			}
+		}
+
+		// --- DELETE DEAD UNITS ---
+		// Remove units with hunger <= 0 or health <= 0
+		auto& units = app.unitManager->getUnits();
+		auto it = units.begin();
+		while (it != units.end()) {
+			bool shouldDelete = false;
+			std::string deleteReason;
+			
+			if (it->hunger <= 0) {
+				shouldDelete = true;
+				deleteReason = "hunger reached 0";
+			} else if (it->health <= 0) {
+				shouldDelete = true;
+				deleteReason = "health reached 0";
+			}
+			
+			if (shouldDelete) {
+				std::cout << "Unit " << it->name << " (id " << it->id << ") has died: " << deleteReason << std::endl;
+				
+				// Clean up any references to this unit
+				int deletedId = it->id;
+				
+				// Clear any theft tracking involving this unit
+				for (auto& otherUnit : units) {
+					if (otherUnit.stolenFromByUnitId == deletedId) {
+						otherUnit.stolenFromByUnitId = -1;
+						otherUnit.fightingTargetId = -1;
+					}
+					if (otherUnit.fightingTargetId == deletedId) {
+						otherUnit.fightingTargetId = -1;
+					}
+				}
+				
+				// Clear carried items
+				if (it->carriedFoodId != -1) {
+					auto foodIt = std::find_if(app.foodManager->getFood().begin(), 
+					                           app.foodManager->getFood().end(),
+					                           [&](const Food& food) { return food.foodId == it->carriedFoodId; });
+					if (foodIt != app.foodManager->getFood().end()) {
+						foodIt->carriedByUnitId = -1;
+					}
+				}
+				
+				if (it->carriedSeedId != -1) {
+					auto seedIt = std::find_if(app.seedManager->getSeeds().begin(), 
+					                           app.seedManager->getSeeds().end(),
+					                           [&](const Seed& seed) { return seed.seedId == it->carriedSeedId; });
+					if (seedIt != app.seedManager->getSeeds().end()) {
+						seedIt->carriedByUnitId = -1;
+					}
+				}
+				
+				it = units.erase(it);
+			} else {
+				++it;
+			}
+		}
 
         // --- RENDERING ---
         SDL_SetRenderDrawColor(app.renderer, 0, 0, 0, 255);

@@ -894,12 +894,22 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 					targetHouse->removeFoodById(foodId);
 					foods.erase(it);
 					
+					// Record who was stolen from
+					justStoleFromUnitId = targetHouse->ownerUnitId;
+					
 					// Print the stealing message
 					std::cout << "Food stolen from home (" << targetHouseGridX << ", " << targetHouseGridY << ") by " << name << "\n";
 				}
 			}
 		}
 		actionQueue.pop();
+		break;
+	}
+	case ActionType::Fight: {
+		// Fight with the unit who stole from this unit
+		// This action requires access to other units, handled in GameLoop.cpp
+		// Here we just maintain the path and handle clamping
+		// The actual fighting logic is in GameLoop.cpp
 		break;
 	}
 
