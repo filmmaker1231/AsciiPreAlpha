@@ -6,6 +6,7 @@
 
 class UnitManager; // Forward declaration
 class FoodManager; // Forward declaration
+class SeedManager; // Forward declaration
 
 
 struct sdl {
@@ -14,6 +15,7 @@ struct sdl {
     CellGrid* cellGrid = nullptr;
     UnitManager* unitManager = nullptr;
 	FoodManager* foodManager = nullptr;
+	SeedManager* seedManager = nullptr;
 
     bool showCellGrid = false;
 	

@@ -7,7 +7,13 @@
 #include <limits>
 #include "Buildings.h"
 
-HouseManager* HouseManager = nullptr;
+HouseManager* g_HouseManager = nullptr;
+FarmManager* g_FarmManager = nullptr;
+
+// Global seed ID counter for all seed generation
+// Note: This is safe for single-threaded SDL game. Overflow is not a practical concern
+// as it would require billions of seeds to be generated in a single game session.
+static int g_nextSeedId = 1;
 
 
 static int findClosestFoodIndex(const Unit& unit, const std::vector<Food>& foods, const CellGrid& cellGrid, int& outFoodGridX, int& outFoodGridY) {
@@ -53,7 +59,7 @@ void Unit::addAction(const Action& action) {
     }
 }
 
-void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods) {
+void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vector<Seed>& seeds) {
 
     // First, handle any path movement (works with or without actions)
     // This allows manually-assigned paths (e.g., via P+click) to be followed
@@ -122,6 +128,36 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods) {
 			});
 
 		if (it != foods.end()) {
+			// Drop seeds before eating the food
+			std::random_device rd;
+			std::mt19937 gen(rd());
+			std::uniform_int_distribution<> seedDist(1, 100);
+			int numSeeds = (seedDist(gen) <= 15) ? 2 : 1; // 15% chance for 2 seeds
+			
+			int pixelX, pixelY;
+			cellGrid.gridToPixel(gridX, gridY, pixelX, pixelY);
+			
+			for (int i = 0; i < numSeeds; ++i) {
+				// Create new seed at food location
+				Seed newSeed(pixelX, pixelY, "seed", g_nextSeedId++);
+				
+				// Check if this location is in the unit's home
+				if (g_HouseManager) {
+					for (auto& house : g_HouseManager->houses) {
+						if (house.ownerUnitId == id &&
+							gridX >= house.gridX && gridX < house.gridX + 3 &&
+							gridY >= house.gridY && gridY < house.gridY + 3) {
+							// Seed dropped in home, owned by homeowner
+							newSeed.ownedByHouseId = id;
+							break;
+						}
+					}
+				}
+				
+				seeds.push_back(newSeed);
+				std::cout << "Dropped seed " << newSeed.seedId << " at (" << gridX << ", " << gridY << ")\n";
+			}
+			
 			// Eat the food
 			hunger = 100;
 			foods.erase(it);
@@ -288,6 +324,26 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods) {
 					return food.foodId == foodId;
 				});
 				if (it != foods.end()) {
+					// Drop seeds before eating the food
+					std::random_device rd;
+					std::mt19937 gen(rd());
+					std::uniform_int_distribution<> seedDist(1, 100);
+					int numSeeds = (seedDist(gen) <= 15) ? 2 : 1; // 15% chance for 2 seeds
+					
+					int pixelX, pixelY;
+					cellGrid.gridToPixel(unitGridX, unitGridY, pixelX, pixelY);
+					
+					for (int i = 0; i < numSeeds; ++i) {
+						// Create new seed at eating location (in home)
+						Seed newSeed(pixelX, pixelY, "seed", g_nextSeedId++);
+						
+						// Seed dropped in home, owned by homeowner
+						newSeed.ownedByHouseId = id;
+						
+						seeds.push_back(newSeed);
+						std::cout << "Dropped seed " << newSeed.seedId << " in house at (" << unitGridX << ", " << unitGridY << ")\n";
+					}
+					
 					hunger = 100;
 					myHouse->removeFoodById(foodId);
 					foods.erase(it); // Now we actually delete the food when eaten
@@ -296,6 +352,428 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods) {
 			}
 		} else {
 			std::cout << "Unit " << name << " tried to eat from house but no food available\n";
+		}
+		actionQueue.pop();
+		break;
+	}
+	case ActionType::CollectSeed: {
+		// Similar to BringItemToHouse but for seeds
+		// 1. If not carrying seed, path to closest seed
+		if (carriedSeedId == -1) {
+			// Not carrying seed - find closest unowned or my-owned seed
+			int unitGridX, unitGridY;
+			cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+			
+			int minDist = std::numeric_limits<int>::max();
+			int closestIdx = -1;
+			int seedGridX = -1, seedGridY = -1;
+			
+			for (size_t i = 0; i < seeds.size(); ++i) {
+				// Only consider seeds that are not carried, and either unowned or owned by me
+				if (seeds[i].carriedByUnitId != -1) continue;
+				if (seeds[i].ownedByHouseId != -1 && seeds[i].ownedByHouseId != id) continue;
+				
+				int sx, sy;
+				cellGrid.pixelToGrid(seeds[i].x, seeds[i].y, sx, sy);
+				int dist = abs(sx - unitGridX) + abs(sy - unitGridY);
+				if (dist < minDist) {
+					minDist = dist;
+					closestIdx = static_cast<int>(i);
+					seedGridX = sx;
+					seedGridY = sy;
+				}
+			}
+			
+			if (closestIdx == -1) {
+				// No seed found, give up
+				actionQueue.pop();
+				break;
+			}
+			
+			// If not at seed, path to it
+			if (unitGridX != seedGridX || unitGridY != seedGridY) {
+				if (path.empty()) {
+					auto newPath = aStarFindPath(unitGridX, unitGridY, seedGridX, seedGridY, cellGrid);
+					if (!newPath.empty()) path = newPath;
+				}
+				break;
+			}
+			
+			// At seed, pick it up
+			if (closestIdx >= 0 && closestIdx < static_cast<int>(seeds.size())) {
+				carriedSeedId = seeds[closestIdx].seedId;
+				seeds[closestIdx].carriedByUnitId = id;
+				std::cout << "Unit " << name << " picked up seed (id " << seeds[closestIdx].seedId << ") to bring home.\n";
+			} else {
+				// Seed was taken by someone else
+				actionQueue.pop();
+			}
+			break;
+		}
+		
+		// 2. If carrying seed, path to house
+		int unitGridX, unitGridY;
+		cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+		if (unitGridX != houseGridX || unitGridY != houseGridY) {
+			if (path.empty()) {
+				auto newPath = aStarFindPath(unitGridX, unitGridY, houseGridX, houseGridY, cellGrid);
+				if (!newPath.empty()) path = newPath;
+			}
+			break;
+		}
+		
+		// 3. At house, deposit seed if house has space
+		House* myHouse = nullptr;
+		if (g_HouseManager) {
+			for (auto& house : g_HouseManager->houses) {
+				if (house.ownerUnitId == id &&
+					house.gridX == houseGridX && house.gridY == houseGridY) {
+					myHouse = &house;
+					break;
+				}
+			}
+		}
+		
+		if (myHouse && myHouse->hasSpace() && carriedSeedId != -1) {
+			// Find the seed object and mark it as owned by house
+			auto it = std::find_if(seeds.begin(), seeds.end(), [&](const Seed& seed) {
+				return seed.seedId == carriedSeedId;
+			});
+			if (it != seeds.end()) {
+				if (myHouse->addSeed(carriedSeedId)) {
+					it->carriedByUnitId = -1;
+					it->ownedByHouseId = myHouse->ownerUnitId;
+					// Position seed in house storage (find which slot it was placed in)
+					bool positioned = false;
+					for (int dx = 0; dx < 3 && !positioned; ++dx) {
+						for (int dy = 0; dy < 3 && !positioned; ++dy) {
+							if (myHouse->seedIds[dx][dy] == carriedSeedId) {
+								cellGrid.gridToPixel(houseGridX + dx, houseGridY + dy, it->x, it->y);
+								positioned = true;
+							}
+						}
+					}
+					carriedSeedId = -1;
+					std::cout << "Unit " << name << " delivered seed (id " << it->seedId << ") to house storage.\n";
+				}
+			}
+		} else {
+			std::cout << "Unit " << name << " could not deliver seed: house full or missing.\n";
+		}
+		actionQueue.pop();
+		break;
+	}
+	case ActionType::BuildFarm: {
+		// Build farm 1 tile away from house if at least 1 seed in house
+		House* myHouse = nullptr;
+		if (g_HouseManager) {
+			for (auto& house : g_HouseManager->houses) {
+				if (house.ownerUnitId == id &&
+					house.gridX == houseGridX && house.gridY == houseGridY) {
+					myHouse = &house;
+					break;
+				}
+			}
+		}
+		
+		// Check if house has at least 1 seed
+		if (!myHouse || !myHouse->hasSeed()) {
+			actionQueue.pop();
+			break;
+		}
+		
+		// Check if farm already exists for this unit
+		bool farmExists = false;
+		if (g_FarmManager) {
+			for (const auto& farm : g_FarmManager->farms) {
+				if (farm.ownerUnitId == id) {
+					farmExists = true;
+					break;
+				}
+			}
+		}
+		
+		if (farmExists) {
+			actionQueue.pop();
+			break;
+		}
+		
+		// Find a suitable location exactly 1 space away from house
+		int farmGridX = -1, farmGridY = -1;
+		bool found = false;
+		
+		// Try positions 1 space away from house (4 cardinal directions)
+		int offsets[4][2] = {{-4, 0}, {4, 0}, {0, -4}, {0, 4}};
+		
+		for (int i = 0; i < 4 && !found; ++i) {
+			int testX = houseGridX + offsets[i][0];
+			int testY = houseGridY + offsets[i][1];
+			
+			// Check if 3x3 area is walkable
+			bool areaWalkable = true;
+			for (int dx = 0; dx < 3 && areaWalkable; ++dx) {
+				for (int dy = 0; dy < 3 && areaWalkable; ++dy) {
+					if (!cellGrid.isCellWalkable(testX + dx, testY + dy)) {
+						areaWalkable = false;
+					}
+				}
+			}
+			
+			if (areaWalkable) {
+				farmGridX = testX;
+				farmGridY = testY;
+				found = true;
+			}
+		}
+		
+		if (!found) {
+			std::cout << "Unit " << name << " could not find suitable location for farm\n";
+			actionQueue.pop();
+			break;
+		}
+		
+		// Navigate to farm location
+		int unitGridX, unitGridY;
+		cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+		if (unitGridX != farmGridX || unitGridY != farmGridY) {
+			if (path.empty()) {
+				auto newPath = aStarFindPath(unitGridX, unitGridY, farmGridX, farmGridY, cellGrid);
+				if (!newPath.empty()) path = newPath;
+			}
+			break;
+		}
+		
+		// Build farm
+		if (g_FarmManager) {
+			g_FarmManager->addFarm(Farm(id, farmGridX, farmGridY));
+			std::cout << "Unit " << name << " built a farm at (" << farmGridX << ", " << farmGridY << ")\n";
+		}
+		actionQueue.pop();
+		break;
+	}
+	case ActionType::PlantSeed: {
+		// Plant seed from house to farm
+		// 1. If not carrying seed, get seed from house
+		if (carriedSeedId == -1) {
+			House* myHouse = nullptr;
+			if (g_HouseManager) {
+				for (auto& house : g_HouseManager->houses) {
+					if (house.ownerUnitId == id &&
+						house.gridX == houseGridX && house.gridY == houseGridY) {
+						myHouse = &house;
+						break;
+					}
+				}
+			}
+			
+			if (!myHouse || !myHouse->hasSeed()) {
+				actionQueue.pop();
+				break;
+			}
+			
+			// Navigate to house
+			int unitGridX, unitGridY;
+			cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+			if (unitGridX != houseGridX || unitGridY != houseGridY) {
+				if (path.empty()) {
+					auto newPath = aStarFindPath(unitGridX, unitGridY, houseGridX, houseGridY, cellGrid);
+					if (!newPath.empty()) path = newPath;
+				}
+				break;
+			}
+			
+			// Pick up seed from house
+			int seedId = myHouse->getFirstSeedId();
+			if (seedId != -1) {
+				myHouse->removeSeedById(seedId);
+				carriedSeedId = seedId;
+				// Mark seed as carried
+				auto it = std::find_if(seeds.begin(), seeds.end(), [&](const Seed& seed) {
+					return seed.seedId == seedId;
+				});
+				if (it != seeds.end()) {
+					it->carriedByUnitId = id;
+					std::cout << "Unit " << name << " picked up seed (id " << seedId << ") from house to plant.\n";
+				}
+			}
+			break;
+		}
+		
+		// 2. If carrying seed, navigate to farm and plant it
+		Farm* myFarm = nullptr;
+		int farmGridX = -1, farmGridY = -1;
+		if (g_FarmManager) {
+			for (auto& farm : g_FarmManager->farms) {
+				if (farm.ownerUnitId == id) {
+					myFarm = &farm;
+					farmGridX = farm.gridX;
+					farmGridY = farm.gridY;
+					break;
+				}
+			}
+		}
+		
+		if (!myFarm) {
+			std::cout << "Unit " << name << " has no farm to plant in\n";
+			actionQueue.pop();
+			break;
+		}
+		
+		if (!myFarm->hasSpace()) {
+			std::cout << "Unit " << name << "'s farm is full\n";
+			actionQueue.pop();
+			break;
+		}
+		
+		// Navigate to farm
+		int unitGridX, unitGridY;
+		cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+		if (unitGridX != farmGridX || unitGridY != farmGridY) {
+			if (path.empty()) {
+				auto newPath = aStarFindPath(unitGridX, unitGridY, farmGridX, farmGridY, cellGrid);
+				if (!newPath.empty()) path = newPath;
+			}
+			break;
+		}
+		
+		// Plant seed in farm
+		Uint32 currentTime = SDL_GetTicks();
+		if (myFarm->plantSeed(carriedSeedId, currentTime)) {
+			// Find the seed object and update its position
+			auto it = std::find_if(seeds.begin(), seeds.end(), [&](const Seed& seed) {
+				return seed.seedId == carriedSeedId;
+			});
+			if (it != seeds.end()) {
+				it->carriedByUnitId = -1;
+				// Position seed in farm (find which slot it was placed in)
+				bool positioned = false;
+				for (int dx = 0; dx < 3 && !positioned; ++dx) {
+					for (int dy = 0; dy < 3 && !positioned; ++dy) {
+						if (myFarm->plantIds[dx][dy] == carriedSeedId) {
+							cellGrid.gridToPixel(farmGridX + dx, farmGridY + dy, it->x, it->y);
+							positioned = true;
+						}
+					}
+				}
+				std::cout << "Unit " << name << " planted seed (id " << carriedSeedId << ") in farm.\n";
+			}
+			carriedSeedId = -1;
+		}
+		actionQueue.pop();
+		break;
+	}
+	case ActionType::HarvestFood: {
+		// Harvest grown food from farm and bring to house
+		// 1. If not carrying food, get grown food from farm
+		if (carriedFoodId == -1) {
+			Farm* myFarm = nullptr;
+			int farmGridX = -1, farmGridY = -1;
+			if (g_FarmManager) {
+				for (auto& farm : g_FarmManager->farms) {
+					if (farm.ownerUnitId == id) {
+						myFarm = &farm;
+						farmGridX = farm.gridX;
+						farmGridY = farm.gridY;
+						break;
+					}
+				}
+			}
+			
+			if (!myFarm) {
+				actionQueue.pop();
+				break;
+			}
+			
+			Uint32 currentTime = SDL_GetTicks();
+			int grownFoodId = myFarm->getFirstGrownFoodId(currentTime);
+			if (grownFoodId == -1) {
+				actionQueue.pop();
+				break;
+			}
+			
+			// Navigate to farm
+			int unitGridX, unitGridY;
+			cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+			if (unitGridX != farmGridX || unitGridY != farmGridY) {
+				if (path.empty()) {
+					auto newPath = aStarFindPath(unitGridX, unitGridY, farmGridX, farmGridY, cellGrid);
+					if (!newPath.empty()) path = newPath;
+				}
+				break;
+			}
+			
+			// Pick up the grown food
+			// First, convert the seed to food object
+			auto seedIt = std::find_if(seeds.begin(), seeds.end(), [&](const Seed& seed) {
+				return seed.seedId == grownFoodId;
+			});
+			if (seedIt != seeds.end()) {
+				// Create food at seed location
+				int seedX = seedIt->x;
+				int seedY = seedIt->y;
+				static int nextFoodId = 10000; // Start from high number to avoid conflicts
+				Food newFood(seedX, seedY, 'f', "farmfood", 100, nextFoodId++);
+				newFood.carriedByUnitId = id;
+				newFood.ownedByHouseId = id;
+				foods.push_back(newFood);
+				carriedFoodId = newFood.foodId;
+				
+				// Remove seed from world
+				seeds.erase(seedIt);
+				
+				// Remove from farm
+				myFarm->removePlantById(grownFoodId);
+				
+				std::cout << "Unit " << name << " harvested food (id " << newFood.foodId << ") from farm.\n";
+			}
+			break;
+		}
+		
+		// 2. If carrying food, bring to house
+		int unitGridX, unitGridY;
+		cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+		if (unitGridX != houseGridX || unitGridY != houseGridY) {
+			if (path.empty()) {
+				auto newPath = aStarFindPath(unitGridX, unitGridY, houseGridX, houseGridY, cellGrid);
+				if (!newPath.empty()) path = newPath;
+			}
+			break;
+		}
+		
+		// At house, deposit food
+		House* myHouse = nullptr;
+		if (g_HouseManager) {
+			for (auto& house : g_HouseManager->houses) {
+				if (house.ownerUnitId == id &&
+					house.gridX == houseGridX && house.gridY == houseGridY) {
+					myHouse = &house;
+					break;
+				}
+			}
+		}
+		
+		if (myHouse && myHouse->hasSpace() && carriedFoodId != -1) {
+			auto it = std::find_if(foods.begin(), foods.end(), [&](const Food& food) {
+				return food.foodId == carriedFoodId;
+			});
+			if (it != foods.end()) {
+				if (myHouse->addFood(carriedFoodId)) {
+					it->carriedByUnitId = -1;
+					it->ownedByHouseId = myHouse->ownerUnitId;
+					// Position food in house storage
+					bool positioned = false;
+					for (int dx = 0; dx < 3 && !positioned; ++dx) {
+						for (int dy = 0; dy < 3 && !positioned; ++dy) {
+							if (myHouse->foodIds[dx][dy] == carriedFoodId) {
+								cellGrid.gridToPixel(houseGridX + dx, houseGridY + dy, it->x, it->y);
+								positioned = true;
+							}
+						}
+					}
+					carriedFoodId = -1;
+					std::cout << "Unit " << name << " delivered harvested food (id " << it->foodId << ") to house.\n";
+				}
+			}
 		}
 		actionQueue.pop();
 		break;
