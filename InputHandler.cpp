@@ -11,6 +11,7 @@
 // Initialize debounce timers
 Uint32 lastUnitSpawnTime = 0;
 Uint32 lastFoodSpawnTime = 0;
+Uint32 lastDeleteTime = 0;
 
 void handleInput(sdl& app) {
     const Uint8* keyState = SDL_GetKeyboardState(nullptr);
@@ -74,12 +75,13 @@ void handleInput(sdl& app) {
         }
     }
 
-    // Delete unit or food with D + click
+    // Delete unit or food with D + click (with debounce)
     if (dHeld && (mouseButtons & SDL_BUTTON(SDL_BUTTON_LEFT))) {
-        // Try to delete a unit first
-        bool deletedUnit = false;
-        if (app.unitManager) {
-            // First, find if there's a unit at this location and get its carried items
+        if (currentTime - lastDeleteTime >= DELETE_DEBOUNCE_MS) {
+            // Try to delete a unit first
+            bool deletedUnit = false;
+            if (app.unitManager) {
+                // First, find if there's a unit at this location and get its carried items
             int carriedFoodId = -1;
             int carriedSeedId = -1;
             const int clickRadius = 20;
@@ -149,6 +151,10 @@ void handleInput(sdl& app) {
                     }
                 }
             }
+        }
+        
+        // Update debounce timer
+        lastDeleteTime = currentTime;
         }
     }
 
