@@ -31,9 +31,17 @@ sdl runSdl() {
 	if (!state.foodManager->initializeFont(nullptr, 24)) {
 		std::cerr << "Warning: Failed to initialize font for units." << std::endl;
 	}
+
+	state.seedManager = new SeedManager();
+	if (!state.seedManager->initializeFont(nullptr, 24)) {
+		std::cerr << "Warning: Failed to initialize font for seeds." << std::endl;
+	}
     
     // Initialize the global house manager
     g_HouseManager = new HouseManager();
+    
+    // Initialize the global farm manager
+    g_FarmManager = new FarmManager();
     
     return state;
 }
@@ -54,9 +62,16 @@ void sdlDestroyWindow(sdl& app) {
     if (app.foodManager) {
         delete app.foodManager;
     }
+    if (app.seedManager) {
+        delete app.seedManager;
+    }
     if (g_HouseManager) {
         delete g_HouseManager;
         g_HouseManager = nullptr;
+    }
+    if (g_FarmManager) {
+        delete g_FarmManager;
+        g_FarmManager = nullptr;
     }
     TTF_Quit();
     SDL_Quit();
