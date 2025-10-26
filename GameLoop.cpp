@@ -389,10 +389,10 @@ void runMainLoop(sdl& app) {
 							std::cout << unit.name << " has hit " << thiefUnit->name 
 							          << " for 10 damage for stealing from them!" << std::endl;
 							
-							// Clear the stolen from tracking after the hit (but stay clamped)
+							// Clear the stolen from tracking after the hit (unit stays clamped for 2 seconds)
 							unit.stolenFromByUnitId = -1;
 							unit.fightingTargetId = -1;
-							// Speed will be restored when unclamped
+							// Speed will be restored when unclamped (line 428) or fight ends
 						}
 						
 						// Update path to thief if not clamped
