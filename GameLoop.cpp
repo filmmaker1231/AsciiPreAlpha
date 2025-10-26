@@ -165,12 +165,32 @@ void runMainLoop(sdl& app) {
 							house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
 							if (house.hasSpace()) {
 								// Check if there's any free seed in the world (unowned or owned by me)
+								// but NOT planted in any farm
 								bool hasCollectableSeed = false;
 								for (const auto& seed : app.seedManager->getSeeds()) {
 									if (seed.carriedByUnitId == -1 && 
 										(seed.ownedByHouseId == -1 || seed.ownedByHouseId == unit.id)) {
-										hasCollectableSeed = true;
-										break;
+										// Check if this seed is planted in any farm
+										bool isPlantedInFarm = false;
+										if (g_FarmManager) {
+											for (const auto& farm : g_FarmManager->farms) {
+												for (int dx = 0; dx < 3; ++dx) {
+													for (int dy = 0; dy < 3; ++dy) {
+														if (farm.plantIds[dx][dy] == seed.seedId) {
+															isPlantedInFarm = true;
+															break;
+														}
+													}
+													if (isPlantedInFarm) break;
+												}
+												if (isPlantedInFarm) break;
+											}
+										}
+										// Only collect seed if it's not planted in a farm
+										if (!isPlantedInFarm) {
+											hasCollectableSeed = true;
+											break;
+										}
 									}
 								}
 								if (hasCollectableSeed) {

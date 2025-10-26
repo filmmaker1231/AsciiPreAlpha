@@ -394,6 +394,24 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 				if (seeds[i].carriedByUnitId != -1) continue;
 				if (seeds[i].ownedByHouseId != -1 && seeds[i].ownedByHouseId != id) continue;
 				
+				// Skip seeds that are planted in any farm
+				bool isPlantedInFarm = false;
+				if (g_FarmManager) {
+					for (const auto& farm : g_FarmManager->farms) {
+						for (int dx = 0; dx < 3; ++dx) {
+							for (int dy = 0; dy < 3; ++dy) {
+								if (farm.plantIds[dx][dy] == seeds[i].seedId) {
+									isPlantedInFarm = true;
+									break;
+								}
+							}
+							if (isPlantedInFarm) break;
+						}
+						if (isPlantedInFarm) break;
+					}
+				}
+				if (isPlantedInFarm) continue;
+				
 				int sx, sy;
 				cellGrid.pixelToGrid(seeds[i].x, seeds[i].y, sx, sy);
 				int dist = abs(sx - unitGridX) + abs(sy - unitGridY);
