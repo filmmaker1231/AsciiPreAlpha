@@ -4,6 +4,7 @@
 #include <SDL_ttf.h>
 #include <iostream>
 #include "Food.h"
+#include "Buildings.h"
 
 
 sdl runSdl() {
@@ -31,7 +32,8 @@ sdl runSdl() {
 		std::cerr << "Warning: Failed to initialize font for units." << std::endl;
 	}
     
-    
+    // Initialize the global house manager
+    g_HouseManager = new HouseManager();
     
     return state;
 }
@@ -51,6 +53,10 @@ void sdlDestroyWindow(sdl& app) {
     }
     if (app.foodManager) {
         delete app.foodManager;
+    }
+    if (g_HouseManager) {
+        delete g_HouseManager;
+        g_HouseManager = nullptr;
     }
     TTF_Quit();
     SDL_Quit();

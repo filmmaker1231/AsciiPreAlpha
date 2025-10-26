@@ -5,24 +5,24 @@
 
 
 
-struct Stockpile {
+struct House {
     int ownerUnitId;
     int gridX, gridY; // Top-left of 3x3 area
     std::vector<int> foodIds; // For future use
 
-    Stockpile(int ownerId, int x, int y)
+    House(int ownerId, int x, int y)
         : ownerUnitId(ownerId), gridX(x), gridY(y) {}
 
 
 };
 
-class StockpileManager {
+class HouseManager {
 public:
-    std::vector<Stockpile> stockpiles;
+    std::vector<House> houses;
 
-    void addStockpile(const Stockpile& s) { stockpiles.push_back(s); }
+    void addHouse(const House& s) { houses.push_back(s); }
     // Add more as needed
 };
 
-// Global stockpile manager instance
-extern StockpileManager* g_StockpileManager;
+// Global house manager instance
+extern HouseManager* g_HouseManager;

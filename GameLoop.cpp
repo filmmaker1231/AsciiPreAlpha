@@ -89,11 +89,11 @@ void runMainLoop(sdl& app) {
             app.unitManager->renderUnitPaths(app.renderer, *app.cellGrid);
         }
 
-        // --- RENDER STOCKPILES ---
-        if (g_StockpileManager) {
+        // --- RENDER HOUSES ---
+        if (g_HouseManager) {
             SDL_SetRenderDrawColor(app.renderer, 139, 69, 19, 255); // Brown
 
-            for (const auto& s : g_StockpileManager->stockpiles) {
+            for (const auto& s : g_HouseManager->houses) {
                 for (int dx = 0; dx < 3; ++dx) {
                     for (int dy = 0; dy < 3; ++dy) {
                         int px, py;
