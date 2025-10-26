@@ -34,6 +34,7 @@ public:
 	  void processAction(CellGrid& cellGrid, std::vector<Food>& foods);
 	  void tryFindAndPathToFood(CellGrid& cellGrid, std::vector<Food>& foods);
 	  void tryEatFromHouse();
+	  bool isAtHouse(int gridX, int gridY) const;
 
 	
 

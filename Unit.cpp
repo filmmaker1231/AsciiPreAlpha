@@ -90,11 +90,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods) {
 		int gridX, gridY;
 		cellGrid.pixelToGrid(x, y, gridX, gridY);
 		
-		// Check if unit is within their house (3x3 area)
-		bool atHouse = (gridX >= houseGridX && gridX < houseGridX + 3 &&
-		                gridY >= houseGridY && gridY < houseGridY + 3);
-		
-		if (atHouse && g_HouseManager) {
+		if (isAtHouse(gridX, gridY) && g_HouseManager) {
 			// Try to eat from house storage
 			for (auto& house : g_HouseManager->houses) {
 				if (house.ownerUnitId == id && !house.foodIds.empty()) {
@@ -169,11 +165,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods) {
 			}
 		} else {
 			// Phase 2: Carrying food, need to store it at house
-			// Check if unit is within their house (3x3 area)
-			bool atHouse = (gridX >= houseGridX && gridX < houseGridX + 3 &&
-			                gridY >= houseGridY && gridY < houseGridY + 3);
-			
-			if (atHouse) {
+			if (isAtHouse(gridX, gridY)) {
 				// At house - store the food
 				if (g_HouseManager) {
 					for (auto& house : g_HouseManager->houses) {
@@ -245,4 +237,10 @@ void Unit::tryEatFromHouse() {
             }
         }
     }
+}
+
+bool Unit::isAtHouse(int gridX, int gridY) const {
+    // Check if unit is within their house (3x3 area)
+    return (gridX >= houseGridX && gridX < houseGridX + 3 &&
+            gridY >= houseGridY && gridY < houseGridY + 3);
 }
