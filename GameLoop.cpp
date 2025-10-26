@@ -13,9 +13,6 @@
 #include <SDL_ttf.h>
 #include <iostream>
 
-// Ensure this is defined somewhere in Buildings.cpp:
-// StockpileManager* StockpileManager = nullptr;
-
 void runMainLoop(sdl& app) {
     bool running = true;
     SDL_Event event;
@@ -93,10 +90,10 @@ void runMainLoop(sdl& app) {
         }
 
         // --- RENDER STOCKPILES ---
-        if (StockpileManager) {
+        if (g_StockpileManager) {
             SDL_SetRenderDrawColor(app.renderer, 139, 69, 19, 255); // Brown
 
-            for (const auto& s : StockpileManager->stockpiles) {
+            for (const auto& s : g_StockpileManager->stockpiles) {
                 for (int dx = 0; dx < 3; ++dx) {
                     for (int dy = 0; dy < 3; ++dy) {
                         int px, py;

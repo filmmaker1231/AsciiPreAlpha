@@ -25,4 +25,4 @@ public:
 };
 
 // Global stockpile manager instance
-extern StockpileManager* StockpileManager;
+extern StockpileManager* g_StockpileManager;

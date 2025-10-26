@@ -131,8 +131,8 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods) {
 				if (cell) cell->isWalkable = false;
 			}
 		}
-		if (StockpileManager) {
-			StockpileManager->addStockpile(Stockpile(id, houseGridX, houseGridY));
+		if (g_StockpileManager) {
+			g_StockpileManager->addStockpile(Stockpile(id, houseGridX, houseGridY));
 		}
 		std::cout << "Unit " << name << " built a house at (" << houseGridX << ", " << houseGridY << ")\n";
 		actionQueue.pop();
