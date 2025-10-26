@@ -101,7 +101,7 @@ void runMainLoop(sdl& app) {
 
             // --- HUNGER LOGIC START ---
             // Decrease hunger by 1 every 10 seconds (10000 ms)
-            if (now - unit.lastHungerUpdate >= 10000) {
+            if (now - unit.lastHungerUpdate >= 500) {
                 if (unit.hunger > 0) {
                     unit.hunger -= 1;
                 }
