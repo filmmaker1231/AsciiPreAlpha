@@ -108,7 +108,8 @@ void runMainLoop(sdl& app) {
 			if (now - unit.lastHungerDebugPrint >= 30000) {
 				std::cout << "Unit " << unit.name
 					<< " (id " << unit.id << ") hunger: "
-					<< unit.hunger << "\n Morality:" << unit.morality << std::endl;
+					<< unit.hunger << "\n Morality:" << unit.morality << "\n Health: " <<
+					unit.health << std::endl;
 				unit.lastHungerDebugPrint = now;
 			}
 
@@ -362,7 +363,7 @@ void runMainLoop(sdl& app) {
 					int dist = abs(thiefGridX - unitGridX) + abs(thiefGridY - unitGridY);
 					
 					// If thief is within 5 tiles, start or continue fighting
-					if (dist <= 5) {
+					if (dist <= 50) {
 						bool alreadyFighting = false;
 						if (!unit.actionQueue.empty()) {
 							Action current = unit.actionQueue.top();
