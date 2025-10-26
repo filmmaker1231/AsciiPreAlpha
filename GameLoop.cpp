@@ -82,18 +82,12 @@ void runMainLoop(sdl& app) {
                 unit.lastHungerUpdate = now;
             }
 
-            // Print hunger every 30 seconds (30000 ms)
-            if (now - unit.lastHungerDebugPrint >= 30000) {
-                std::cout << "Unit " << unit.name
-                          << " (id " << unit.id << ") hunger: "
-                          << unit.hunger << std::endl;
-                unit.lastHungerDebugPrint = now;
-            }
+            
             // --- HUNGER LOGIC END ---
 
             // --- MORALITY LOGIC START ---
             // Update morality every 1 second (1000 ms)
-            if (now - unit.lastMoralityUpdate >= 1000) {
+            if (now - unit.lastMoralityUpdate >= 200) {
                 if (unit.hunger < 50) {
                     // Decrease morality by 1 if hunger is below 50
                     if (unit.morality > 0) {
@@ -108,7 +102,14 @@ void runMainLoop(sdl& app) {
                 unit.lastMoralityUpdate = now;
             }
             // --- MORALITY LOGIC END ---
-
+			
+			// Print hunger every 30 seconds (30000 ms)
+			if (now - unit.lastHungerDebugPrint >= 30000) {
+				std::cout << "Unit " << unit.name
+					<< " (id " << unit.id << ") hunger: "
+					<< unit.hunger << "\n Morality:" << unit.morality << std::endl;
+				unit.lastHungerDebugPrint = now;
+			}
 
 
 			// --- EAT FROM HOUSE LOGIC ---
