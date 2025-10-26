@@ -3,6 +3,7 @@
 #include "InputHandler.h"
 #include "Pathfinding.h"
 #include "Food.h"
+#include "Buildings.h"
 
 // Pass sdl& app as a parameter
  // Make sure to include your pathfinding header
@@ -130,11 +131,20 @@ void handleInput(sdl& app) {
             
             // Delete the food
             if (app.foodManager->deleteFoodAt(mouseX, mouseY)) {
-                // Clear any unit carrying this food
-                if (deletedFoodId != -1 && app.unitManager) {
-                    for (auto& unit : app.unitManager->getUnits()) {
-                        if (unit.carriedFoodId == deletedFoodId) {
-                            unit.carriedFoodId = -1;
+                if (deletedFoodId != -1) {
+                    // Clear any unit carrying this food
+                    if (app.unitManager) {
+                        for (auto& unit : app.unitManager->getUnits()) {
+                            if (unit.carriedFoodId == deletedFoodId) {
+                                unit.carriedFoodId = -1;
+                            }
+                        }
+                    }
+                    
+                    // Remove food from any house storage
+                    if (g_HouseManager) {
+                        for (auto& house : g_HouseManager->houses) {
+                            house.removeFoodById(deletedFoodId);
                         }
                     }
                 }
