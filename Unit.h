@@ -17,6 +17,7 @@ public:
     int health;
 	int hunger = 100;
 	std::vector<std::string> inventory;
+	int carriedFoodId = -1; // ID of food being carried, -1 if none
 	Uint32 lastHungerUpdate = 0;
 	Uint32 lastHungerDebugPrint = 0;
     int id;
