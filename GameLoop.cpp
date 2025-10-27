@@ -13,12 +13,20 @@
 #include <SDL.h>
 #include <SDL_ttf.h>
 #include <iostream>
+#include <algorithm> // for find_if
+#include <queue>
 
 void runMainLoop(sdl& app) {
     bool running = true;
     SDL_Event event;
     static int frameCounter = 0;
     const int HUNGER_CHECK_FRAMES = 60; // Check hunger once every 60 frames (~1 second at 60 FPS)
+
+    // Timing constants (ms)
+    const Uint32 HUNGER_DECAY_MS = 10000;   // Decrease hunger by 1 every 10 seconds
+    const Uint32 MORALITY_UPDATE_MS = 1000; // Update morality every 1 second
+    const Uint32 SELLER_ABANDON_MS = 200000; // 200 seconds -> 200,000 ms
+    const Uint32 FIGHT_CLAMP_MS = 2000;     // 2 seconds clamp during fight
 
     while (running) {
         // Handle events
@@ -34,779 +42,657 @@ void runMainLoop(sdl& app) {
 
         Uint32 now = SDL_GetTicks();
 
-		// --- MARKET STALL ABANDONMENT LOGIC ---
-		// Handle food left at market stalls (after 200 seconds, make food free)
-		if (g_MarketManager) {
-			for (auto& market : g_MarketManager->markets) {
-				for (int dx = 0; dx < 3; ++dx) {
-					for (int dy = 0; dy < 3; ++dy) {
-						if (market.stallFoodIds[dx][dy] != -1) {
-							int sellerId = market.stallSellerIds[dx][dy];
-							// Check if seller is present at the stall
-							bool sellerPresent = false;
-							if (sellerId != -1) {
-								for (const auto& unit : app.unitManager->getUnits()) {
-									if (unit.id == sellerId && unit.isSelling &&
-										unit.sellingStallX == market.gridX + dx &&
-										unit.sellingStallY == market.gridY + dy) {
-										// Seller is at their stall
-										sellerPresent = true;
-										market.stallAbandonTimes[dx][dy] = 0; // Reset abandon timer
-										break;
-									}
-								}
-							}
-							
-							if (!sellerPresent) {
-								// Seller is not at stall
-								if (market.stallAbandonTimes[dx][dy] == 0) {
-									// Start abandon timer
-									market.stallAbandonTimes[dx][dy] = now;
-								} else if (now - market.stallAbandonTimes[dx][dy] >= 200000) {
-									// 200 seconds have passed, make food free
-									int foodId = market.stallFoodIds[dx][dy];
-									auto foodIt = std::find_if(app.foodManager->getFood().begin(),
-																app.foodManager->getFood().end(),
-																[&](const Food& food) { return food.foodId == foodId; });
-									if (foodIt != app.foodManager->getFood().end()) {
-										foodIt->ownedByHouseId = -1;
-										foodIt->carriedByUnitId = -1;
-										std::cout << "Food (id " << foodId << ") at market stall has been abandoned and is now free.\n";
-									}
-									// Clear the stall
-									market.stallFoodIds[dx][dy] = -1;
-									market.stallSellerIds[dx][dy] = -1;
-									market.stallAbandonTimes[dx][dy] = 0;
-									
-									// Clear seller's selling status if they still have it
-									if (sellerId != -1) {
-										for (auto& unit : app.unitManager->getUnits()) {
-											if (unit.id == sellerId && unit.isSelling) {
-												unit.isSelling = false;
-												unit.sellingStallX = -1;
-												unit.sellingStallY = -1;
-												
-												// Also clear any active SellAtMarket action
-												if (!unit.actionQueue.empty()) {
-													Action current = unit.actionQueue.top();
-													if (current.type == ActionType::SellAtMarket) {
-														unit.actionQueue.pop();
-													}
-												}
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
+        // --- MARKET STALL ABANDONMENT LOGIC ---
+        if (g_MarketManager) {
+            for (auto& market : g_MarketManager->markets) {
+                for (int dx = 0; dx < 3; ++dx) {
+                    for (int dy = 0; dy < 3; ++dy) {
+                        int &stallFoodId = market.stallFoodIds[dx][dy];
+                        int &stallSellerId = market.stallSellerIds[dx][dy];
+                        Uint32 &stallAbandonTime = market.stallAbandonTimes[dx][dy];
 
-        // Process units
-        for (auto& unit : app.unitManager->getUnits()) {
+                        if (stallFoodId != -1) {
+                            // Check if seller is present at the stall
+                            bool sellerPresent = false;
+                            if (stallSellerId != -1 && app.unitManager) {
+                                for (const auto& unit : app.unitManager->getUnits()) {
+                                    if (unit.id == stallSellerId &&
+                                        unit.isSelling &&
+                                        unit.sellingStallX == market.gridX + dx &&
+                                        unit.sellingStallY == market.gridY + dy) {
+                                        sellerPresent = true;
+                                        // Reset abandon timer if seller is present
+                                        if (stallAbandonTime != 0) stallAbandonTime = 0;
+                                        break;
+                                    }
+                                }
+                            }
 
-			// --- CHECK FOR COINS TO BRING HOME AFTER SELLING ---
-			if (!unit.receivedCoins.empty() && unit.carriedCoinId == -1) {
-				bool alreadyBringingCoin = false;
-				if (!unit.actionQueue.empty()) {
-					Action current = unit.actionQueue.top();
-					if (current.type == ActionType::BringCoinToHouse) {
-						alreadyBringingCoin = true;
-					}
-				}
-				if (!alreadyBringingCoin) {
-					unit.addAction(Action(ActionType::BringCoinToHouse, 3));
-				}
-			}
+                            if (!sellerPresent) {
+                                // Seller not present -> start or continue abandon timer
+                                if (stallAbandonTime == 0) {
+                                    stallAbandonTime = now;
+                                } else if (now - stallAbandonTime >= SELLER_ABANDON_MS) {
+                                    // 200 seconds have passed -> make food free
+                                    int foodId = stallFoodId;
+                                    if (app.foodManager) {
+                                        auto& foods = app.foodManager->getFood();
+                                        auto foodIt = std::find_if(foods.begin(), foods.end(),
+                                            [&](const Food& food) { return food.foodId == foodId; });
+                                        if (foodIt != foods.end()) {
+                                            foodIt->ownedByHouseId = -1;
+                                            foodIt->carriedByUnitId = -1;
+                                            std::cout << "Food (id " << foodId << ") at market stall has been abandoned and is now free.\n";
+                                        }
+                                    }
 
-			// --- AUTO BRING FOOD TO HOUSE LOGIC ---
-// Only if the unit is not already bringing food, and house is not full
-			bool alreadyBringingFood = false;
-			if (!unit.actionQueue.empty()) {
-				Action current = unit.actionQueue.top();
-				if (current.type == ActionType::BringItemToHouse && current.itemType == "food") {
-					alreadyBringingFood = true;
-				}
-			}
+                                    // Clear the stall and reset fields
+                                    stallFoodId = -1;
+                                    stallSellerId = -1;
+                                    // reset timer (only once)
+                                    stallAbandonTime = 0;
 
-			// Only try to bring food if there is food available (and not carried by anyone)
-			if (!alreadyBringingFood && g_HouseManager && app.foodManager && !app.foodManager->getFood().empty()) {
-				for (auto& house : g_HouseManager->houses) {
-					if (house.ownerUnitId == unit.id &&
-						house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
-						if (house.hasSpace()) {
-							// Check if there's any free food in the world
-							bool hasFreeFood = false;
-							for (const auto& food : app.foodManager->getFood()) {
-								if (food.carriedByUnitId == -1 && food.ownedByHouseId == -1) {
-									hasFreeFood = true;
-									break;
-								}
-							}
-							if (hasFreeFood) {
-								unit.bringItemToHouse("food");
-							}
-						}
-						break;
-					}
-				}
-			}
-
-
-
-
-
-            // --- HUNGER LOGIC START ---
-            // Decrease hunger by 1 every 10 seconds (10000 ms)
-            if (now - unit.lastHungerUpdate >= 500) {
-                if (unit.hunger > 0) {
-                    unit.hunger -= 1;
-                }
-                unit.lastHungerUpdate = now;
-            }
-
-            
-            // --- HUNGER LOGIC END ---
-
-            // --- MORALITY LOGIC START ---
-            // Update morality every 1 second (1000 ms)
-            if (now - unit.lastMoralityUpdate >= 200) {
-                if (unit.hunger < 50) {
-                    // Decrease morality by 1 if hunger is below 50
-                    if (unit.morality > 0) {
-                        unit.morality -= 1;
-                    }
-                } else if (unit.hunger > 50) {
-                    // Increase morality by 1 if hunger is above 50
-                    if (unit.morality < 100) {
-                        unit.morality += 1;
+                                    // Clear seller's selling status if seller unit still exists
+                                    if (stallSellerId != -1 && app.unitManager) {
+                                        for (auto& unit : app.unitManager->getUnits()) {
+                                            if (unit.id == stallSellerId && unit.isSelling) {
+                                                unit.isSelling = false;
+                                                unit.sellingStallX = -1;
+                                                unit.sellingStallY = -1;
+                                                // Clear SellAtMarket action if it's at the top
+                                                if (!unit.actionQueue.empty()) {
+                                                    const Action& topAction = unit.actionQueue.top();
+                                                    if (topAction.type == ActionType::SellAtMarket) {
+                                                        // re-check not empty before pop
+                                                        if (!unit.actionQueue.empty()) unit.actionQueue.pop();
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } // end if stallFoodId != -1
                     }
                 }
-                unit.lastMoralityUpdate = now;
-            }
-            // --- MORALITY LOGIC END ---
-			
-			// Print hunger every 30 seconds (30000 ms)
-			if (now - unit.lastHungerDebugPrint >= 30000) {
-				std::cout << "Unit " << unit.name
-					<< " (id " << unit.id << ") hunger: "
-					<< unit.hunger << "\n Morality:" << unit.morality << "\n Health: " <<
-					unit.health << std::endl;
-				unit.lastHungerDebugPrint = now;
-			}
-
-
-			// --- EAT FROM HOUSE LOGIC ---
-			// If hunger is below 50, try to eat from house storage first
-			bool tryingToEatFromHouse = false;
-			if ((frameCounter % HUNGER_CHECK_FRAMES == 0) && unit.hunger < 50) {
-				bool alreadyEatingFromHouse = false;
-				if (!unit.actionQueue.empty()) {
-					Action current = unit.actionQueue.top();
-					if (current.type == ActionType::EatFromHouse) {
-						alreadyEatingFromHouse = true;
-					}
-				}
-				if (!alreadyEatingFromHouse && g_HouseManager) {
-					// Check if unit has a house with food
-					for (auto& house : g_HouseManager->houses) {
-						if (house.ownerUnitId == unit.id &&
-							house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
-							if (house.hasItem("food")) {
-								unit.eatFromHouse();
-								tryingToEatFromHouse = true;
-							}
-							break;
-						}
-					}
-				}
-			}
-
-			// --- STEALING LOGIC ---
-			// If morality is below 10 and hunger is 30 or below, unit will steal from nearest home
-			bool tryingToSteal = false;
-			if ((frameCounter % HUNGER_CHECK_FRAMES == 0) && unit.morality < 10 && unit.hunger <= 30) {
-				bool alreadyStealing = false;
-				if (!unit.actionQueue.empty()) {
-					Action current = unit.actionQueue.top();
-					if (current.type == ActionType::StealFood) {
-						alreadyStealing = true;
-					}
-				}
-				if (!alreadyStealing && g_HouseManager) {
-					// Check if there's any house (including others') with food
-					for (auto& house : g_HouseManager->houses) {
-						if (house.hasFood()) {
-							// Add StealFood action with priority 8
-							unit.addAction(Action(ActionType::StealFood, 8));
-							tryingToSteal = true;
-							break;
-						}
-					}
-				}
-			}
-
-
-
-            // If hungry and not already seeking food, try to find food from world
-            // Only check this periodically to optimize performance
-            // Skip if unit is trying to eat from house (hunger < 50 and house has food)
-            // Skip if unit is trying to steal (morality < 10 and hunger <= 30)
-            // Note: hunger <= 99 allows units to proactively gather food even when only slightly hungry
-            if ((frameCounter % HUNGER_CHECK_FRAMES == 0) && unit.hunger <= 99 && !tryingToEatFromHouse && !tryingToSteal) {
-                bool alreadySeekingFood = false;
-                if (!unit.actionQueue.empty()) {
-                    Action current = unit.actionQueue.top();
-                    if (current.type == ActionType::Eat) {
-                        alreadySeekingFood = true;
-                    }
-                }
-                if (!alreadySeekingFood) {
-                    unit.tryFindAndPathToFood(*app.cellGrid, app.foodManager->getFood());
-                }
-            }
-
-
-
-
-
-
-
-
-
-
-			// --- AUTO COLLECT SEEDS LOGIC (Priority 3) ---
-			// Only if there are seeds on the map and not already collecting
-			if (app.seedManager && !app.seedManager->getSeeds().empty()) {
-				bool alreadyCollectingSeed = false;
-				if (!unit.actionQueue.empty()) {
-					Action current = unit.actionQueue.top();
-					if (current.type == ActionType::CollectSeed) {
-						alreadyCollectingSeed = true;
-					}
-				}
-				
-				if (!alreadyCollectingSeed && g_HouseManager) {
-					// Check if unit has a house with space
-					for (auto& house : g_HouseManager->houses) {
-						if (house.ownerUnitId == unit.id &&
-							house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
-							if (house.hasSpace()) {
-								// Check if there's any free seed in the world (unowned or owned by me)
-								// but NOT planted in any farm
-								bool hasCollectableSeed = false;
-								for (const auto& seed : app.seedManager->getSeeds()) {
-									if (seed.carriedByUnitId == -1 && 
-										(seed.ownedByHouseId == -1 || seed.ownedByHouseId == unit.id)) {
-										// Check if this seed is planted in any farm
-										bool isPlantedInFarm = false;
-										if (g_FarmManager) {
-											for (const auto& farm : g_FarmManager->farms) {
-												for (int dx = 0; dx < 3; ++dx) {
-													for (int dy = 0; dy < 3; ++dy) {
-														if (farm.plantIds[dx][dy] == seed.seedId) {
-															isPlantedInFarm = true;
-															break;
-														}
-													}
-													if (isPlantedInFarm) break;
-												}
-												if (isPlantedInFarm) break;
-											}
-										}
-										// Only collect seed if it's not planted in a farm
-										if (!isPlantedInFarm) {
-											hasCollectableSeed = true;
-											break;
-										}
-									}
-								}
-								if (hasCollectableSeed) {
-									unit.addAction(Action(ActionType::CollectSeed, 3));
-								}
-							}
-							break;
-						}
-					}
-				}
-			}
-
-			// --- AUTO COLLECT COINS LOGIC (Priority 3) ---
-			// Collect free coins within 20 tiles and bring them home
-			if (app.coinManager && !app.coinManager->getCoins().empty()) {
-				bool alreadyCollectingCoin = false;
-				if (!unit.actionQueue.empty()) {
-					Action current = unit.actionQueue.top();
-					if (current.type == ActionType::CollectCoin) {
-						alreadyCollectingCoin = true;
-					}
-				}
-				
-				if (!alreadyCollectingCoin && g_HouseManager) {
-					// Check if unit has a house with space
-					for (auto& house : g_HouseManager->houses) {
-						if (house.ownerUnitId == unit.id &&
-							house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
-							if (house.hasSpace()) {
-								// Get unit's grid position
-								int unitGridX, unitGridY;
-								app.cellGrid->pixelToGrid(unit.x, unit.y, unitGridX, unitGridY);
-								
-								// Check if there's any free coin within 20 tiles
-								bool hasCollectableCoin = false;
-								for (const auto& coin : app.coinManager->getCoins()) {
-									if (coin.carriedByUnitId == -1 && coin.ownedByHouseId == -1) {
-										// Get coin's grid position
-										int coinGridX, coinGridY;
-										app.cellGrid->pixelToGrid(coin.x, coin.y, coinGridX, coinGridY);
-										
-										// Calculate Manhattan distance
-										int distance = abs(coinGridX - unitGridX) + abs(coinGridY - unitGridY);
-										
-										// Check if coin is within 20 tiles
-										if (distance <= 20) {
-											hasCollectableCoin = true;
-											break;
-										}
-									}
-								}
-								if (hasCollectableCoin) {
-									unit.addAction(Action(ActionType::CollectCoin, 3));
-								}
-							}
-							break;
-						}
-					}
-				}
-			}
-
-			// --- AUTO BUILD FARM LOGIC (Priority 4) ---
-			// Build farm if we have at least 1 seed in house and no farm yet
-			if (g_HouseManager && g_FarmManager) {
-				bool alreadyBuildingFarm = false;
-				if (!unit.actionQueue.empty()) {
-					Action current = unit.actionQueue.top();
-					if (current.type == ActionType::BuildFarm) {
-						alreadyBuildingFarm = true;
-					}
-				}
-				
-				if (!alreadyBuildingFarm) {
-					// Check if unit has a house with seeds
-					for (auto& house : g_HouseManager->houses) {
-						if (house.ownerUnitId == unit.id &&
-							house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
-							if (house.hasSeed()) {
-								// Check if farm already exists
-								bool farmExists = false;
-								for (const auto& farm : g_FarmManager->farms) {
-									if (farm.ownerUnitId == unit.id) {
-										farmExists = true;
-										break;
-									}
-								}
-								if (!farmExists) {
-									unit.addAction(Action(ActionType::BuildFarm, 4));
-								}
-							}
-							break;
-						}
-					}
-				}
-			}
-
-			// --- AUTO PLANT SEEDS LOGIC (Priority 4) ---
-			// Plant seeds from house to farm if farm has space
-			if (g_HouseManager && g_FarmManager) {
-				bool alreadyPlanting = false;
-				if (!unit.actionQueue.empty()) {
-					Action current = unit.actionQueue.top();
-					if (current.type == ActionType::PlantSeed) {
-						alreadyPlanting = true;
-					}
-				}
-				
-				if (!alreadyPlanting) {
-					// Check if unit has a farm with space and house with seeds
-					for (auto& farm : g_FarmManager->farms) {
-						if (farm.ownerUnitId == unit.id && farm.hasSpace()) {
-							// Check if house has seeds
-							for (auto& house : g_HouseManager->houses) {
-								if (house.ownerUnitId == unit.id &&
-									house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
-									if (house.hasSeed()) {
-										unit.addAction(Action(ActionType::PlantSeed, 4));
-									}
-									break;
-								}
-							}
-							break;
-						}
-					}
-				}
-			}
-
-			// --- AUTO HARVEST FOOD LOGIC (Priority 4) ---
-			// Harvest grown food from farm
-			if (g_FarmManager) {
-				bool alreadyHarvesting = false;
-				if (!unit.actionQueue.empty()) {
-					Action current = unit.actionQueue.top();
-					if (current.type == ActionType::HarvestFood) {
-						alreadyHarvesting = true;
-					}
-				}
-				
-				if (!alreadyHarvesting) {
-					// Check if unit has a farm with grown food
-					for (auto& farm : g_FarmManager->farms) {
-						if (farm.ownerUnitId == unit.id) {
-							Uint32 currentTime = SDL_GetTicks();
-							if (farm.getFirstGrownFoodId(currentTime) != -1) {
-								unit.addAction(Action(ActionType::HarvestFood, 4));
-							}
-							break;
-						}
-					}
-				}
-			}
-
-
-			// --- AUTO SELL AT MARKET LOGIC (Priority 2) ---
-			// Sell at market if house is full
-			if (g_HouseManager && g_MarketManager) {
-				bool alreadySelling = false;
-				bool alreadyBringingCoin = false;
-				if (!unit.actionQueue.empty()) {
-					Action current = unit.actionQueue.top();
-					if (current.type == ActionType::SellAtMarket) {
-						alreadySelling = true;
-					}
-					if (current.type == ActionType::BringCoinToHouse) {
-						alreadyBringingCoin = true;
-					}
-				}
-				
-				// Don't trigger sell if unit is bringing coin home or has coins to collect
-				bool isBusyWithCoin = alreadyBringingCoin || unit.carriedCoinId != -1 || !unit.receivedCoins.empty();
-				
-				// If unit is marked as selling but not actively selling, validate before resuming
-				if (!alreadySelling && !isBusyWithCoin && unit.isSelling && unit.sellingStallX != -1) {
-					// Validate that house is still full and has food before resuming
-					bool shouldResume = false;
-					for (auto& house : g_HouseManager->houses) {
-						if (house.ownerUnitId == unit.id &&
-							house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
-							if (!house.hasSpace() && house.hasFood()) {
-								shouldResume = true;
-							}
-							break;
-						}
-					}
-					if (shouldResume) {
-						// Resume selling at their stall
-						unit.addAction(Action(ActionType::SellAtMarket, 2));
-					} else {
-						// Can't resume - clear selling state
-						unit.isSelling = false;
-						unit.sellingStallX = -1;
-						unit.sellingStallY = -1;
-					}
-				} else if (!alreadySelling && !isBusyWithCoin && !unit.isSelling) {
-					// Check if unit's house is full and has food
-					for (auto& house : g_HouseManager->houses) {
-						if (house.ownerUnitId == unit.id &&
-							house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
-							if (!house.hasSpace() && house.hasFood()) {
-								// House is full and has food to sell
-								unit.addAction(Action(ActionType::SellAtMarket, 2));
-							}
-							break;
-						}
-					}
-				}
-			}
-
-			// --- AUTO BUY AT MARKET LOGIC (Priority 2) ---
-			// Buy at market if home is not full of food, has at least 1 coin, and there's a seller
-			if (g_HouseManager && g_MarketManager) {
-				bool alreadyBuying = false;
-				if (!unit.actionQueue.empty()) {
-					Action current = unit.actionQueue.top();
-					if (current.type == ActionType::BuyAtMarket) {
-						alreadyBuying = true;
-					}
-				}
-				
-				if (!alreadyBuying) {
-					// Check if unit's house has space and has a coin
-					for (auto& house : g_HouseManager->houses) {
-						if (house.ownerUnitId == unit.id &&
-							house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
-							// House should not be full of food (check if has space OR only has coins/seeds)
-							bool needsFood = house.hasSpace() || !house.hasFood();
-							if (needsFood && house.hasCoin()) {
-								// Check if there's an active seller at any market
-								bool hasActiveSeller = false;
-								for (const auto& market : g_MarketManager->markets) {
-									if (market.hasActiveSeller()) {
-										hasActiveSeller = true;
-										break;
-									}
-								}
-								if (hasActiveSeller) {
-									unit.addAction(Action(ActionType::BuyAtMarket, 2));
-								}
-							}
-							break;
-						}
-					}
-				}
-			}
-
-
-
-			// --- FIGHT LOGIC ---
-			// If a unit had food stolen from them and the thief is within 5 tiles, fight them
-			if (unit.stolenFromByUnitId != -1) {
-				// Find the thief unit
-				Unit* thiefUnit = nullptr;
-				for (auto& otherUnit : app.unitManager->getUnits()) {
-					if (otherUnit.id == unit.stolenFromByUnitId) {
-						thiefUnit = &otherUnit;
-						break;
-					}
-				}
-				
-				if (thiefUnit) {
-					// Calculate distance to thief
-					int unitGridX, unitGridY;
-					app.cellGrid->pixelToGrid(unit.x, unit.y, unitGridX, unitGridY);
-					int thiefGridX, thiefGridY;
-					app.cellGrid->pixelToGrid(thiefUnit->x, thiefUnit->y, thiefGridX, thiefGridY);
-					int dist = abs(thiefGridX - unitGridX) + abs(thiefGridY - unitGridY);
-					
-					// If thief is within 5 tiles, start or continue fighting
-					if (dist <= 5) {
-						bool alreadyFighting = false;
-						if (!unit.actionQueue.empty()) {
-							Action current = unit.actionQueue.top();
-							if (current.type == ActionType::Fight) {
-								alreadyFighting = true;
-							}
-						}
-						
-						if (!alreadyFighting) {
-							// Add Fight action with priority 9
-							unit.addAction(Action(ActionType::Fight, 9));
-							unit.fightingTargetId = thiefUnit->id;
-						}
-						
-						// Check if units are adjacent (distance 1 or 0)
-						if (dist <= 1 && !unit.isClamped) {
-							// Start the fight - clamp both units
-							unit.isClamped = true;
-							thiefUnit->isClamped = true;
-							unit.fightStartTime = now;
-							thiefUnit->fightStartTime = now;
-							
-							// Deal damage to the thief
-							thiefUnit->health -= 10;
-							std::cout << unit.name << " has hit " << thiefUnit->name 
-							          << " for 10 damage for stealing from them!" << std::endl;
-							
-							// Clear the stolen from tracking after the hit (unit stays clamped for 2 seconds)
-							unit.stolenFromByUnitId = -1;
-							unit.fightingTargetId = -1;
-							
-							// Clear the thief's action queue so they return to default Wander behavior
-							std::priority_queue<Action, std::vector<Action>, ActionComparator> empty;
-							std::swap(thiefUnit->actionQueue, empty);
-							
-							// Speed will be restored when unclamped (line 428) or fight ends
-						}
-						
-						// Update path to thief if not clamped
-						if (!unit.isClamped && (unit.path.empty() || frameCounter % 30 == 0)) {
-							// Continuously update path to follow the thief
-							auto newPath = aStarFindPath(unitGridX, unitGridY, thiefGridX, thiefGridY, *app.cellGrid);
-							if (!newPath.empty()) {
-								unit.path = newPath;
-								// Make this unit faster to catch up
-								unit.moveDelay = 30; // Faster than normal (normal is 50)
-							}
-						}
-					} else {
-						// Thief too far away, give up chase and restore normal speed
-						unit.stolenFromByUnitId = -1;
-						unit.fightingTargetId = -1;
-						unit.moveDelay = 50;
-						// Clear Fight action from queue
-						if (!unit.actionQueue.empty()) {
-							Action current = unit.actionQueue.top();
-							if (current.type == ActionType::Fight) {
-								unit.actionQueue.pop();
-							}
-						}
-					}
-				} else {
-					// Thief not found (might have been deleted), clear tracking and restore speed
-					unit.stolenFromByUnitId = -1;
-					unit.fightingTargetId = -1;
-					unit.moveDelay = 50;
-					// Clear Fight action from queue
-					if (!unit.actionQueue.empty()) {
-						Action current = unit.actionQueue.top();
-						if (current.type == ActionType::Fight) {
-							unit.actionQueue.pop();
-						}
-					}
-				}
-			}
-			
-			// Handle clamping during fight - prevent movement for 2 seconds
-			if (unit.isClamped && now - unit.fightStartTime >= 2000) {
-				// 2 seconds have passed, unclamp
-				unit.isClamped = false;
-				unit.fightStartTime = 0;
-				// Restore normal speed
-				unit.moveDelay = 50;
-				
-				// Clear Fight action from queue so unit can return to Wander
-				if (!unit.actionQueue.empty()) {
-					Action current = unit.actionQueue.top();
-					if (current.type == ActionType::Fight) {
-						unit.actionQueue.pop();
-					}
-				}
-			}
-			
-			// Prevent movement if clamped
-			if (unit.isClamped) {
-				unit.path.clear();
-			}
-
-            // Process queued actions - only if there's something to process
-            if (!unit.actionQueue.empty() || !unit.path.empty()) {
-                unit.processAction(*app.cellGrid, app.foodManager->getFood(), app.seedManager->getSeeds(), app.coinManager->getCoins());
-            }
-
-            // If no actions left, re-add Wander
-            if (unit.actionQueue.empty()) {
-                unit.addAction(Action(ActionType::Wander, 1));
             }
         }
 
-		// --- TRACK THEFT VICTIMS ---
-		// After all units have processed, check if any stealing occurred
-		for (auto& thief : app.unitManager->getUnits()) {
-			if (thief.justStoleFromUnitId != -1) {
-				// Find the victim and record the theft
-				for (auto& victim : app.unitManager->getUnits()) {
-					if (victim.id == thief.justStoleFromUnitId) {
-						victim.stolenFromByUnitId = thief.id;
-						std::cout << "Victim " << victim.name << " (id " << victim.id 
-						          << ") now knows that " << thief.name << " (id " << thief.id 
-						          << ") stole from them" << std::endl;
-						break;
-					}
-				}
-				// Clear the flag
-				thief.justStoleFromUnitId = -1;
-			}
-		}
+        // Process units
+        if (app.unitManager) {
+            auto& unitsRef = app.unitManager->getUnits();
+            for (auto& unit : unitsRef) {
 
-		// --- HANDLE COIN OWNERSHIP FROM MARKET TRANSACTIONS ---
-		// Check for coins marked as owned by sellers and add them to receivedCoins
-		if (app.coinManager) {
-			for (auto& coin : app.coinManager->getCoins()) {
-				if (coin.ownedByHouseId != -1 && coin.carriedByUnitId == -1) {
-					// Find the seller unit and add coin to their receivedCoins if not already there
-					for (auto& seller : app.unitManager->getUnits()) {
-						if (seller.id == coin.ownedByHouseId) {
-							// Check if coin is already in receivedCoins
-							bool alreadyAdded = false;
-							for (int receivedCoin : seller.receivedCoins) {
-								if (receivedCoin == coin.coinId) {
-									alreadyAdded = true;
-									break;
-								}
-							}
-							if (!alreadyAdded) {
-								seller.receivedCoins.push_back(coin.coinId);
-								std::cout << "Market: Seller " << seller.name << " (id " << seller.id 
-								          << ") received coin (id " << coin.coinId << ") from sale.\n";
-								// Clear the seller's selling status
-								seller.isSelling = false;
-								seller.sellingStallX = -1;
-								seller.sellingStallY = -1;
-							}
-							break;
-						}
-					}
-				}
-			}
-		}
+                // --- CHECK FOR COINS TO BRING HOME AFTER SELLING ---
+                if (!unit.receivedCoins.empty() && unit.carriedCoinId == -1) {
+                    bool alreadyBringingCoin = false;
+                    if (!unit.actionQueue.empty()) {
+                        const Action& current = unit.actionQueue.top();
+                        if (current.type == ActionType::BringCoinToHouse) alreadyBringingCoin = true;
+                    }
+                    if (!alreadyBringingCoin) {
+                        unit.addAction(Action(ActionType::BringCoinToHouse, 3));
+                    }
+                }
 
-		// --- DELETE DEAD UNITS ---
-		// Remove units with hunger <= 0 or health <= 0
-		auto& units = app.unitManager->getUnits();
-		auto it = units.begin();
-		while (it != units.end()) {
-			bool shouldDelete = false;
-			std::string deleteReason;
-			
-			if (it->hunger <= 0) {
-				shouldDelete = true;
-				deleteReason = "hunger reached 0";
-			} else if (it->health <= 0) {
-				shouldDelete = true;
-				deleteReason = "health reached 0";
-			}
-			
-			if (shouldDelete) {
-				std::cout << "Unit " << it->name << " (id " << it->id << ") has died: " << deleteReason << std::endl;
-				
-				// Clean up any references to this unit
-				int deletedId = it->id;
-				
-				// Clear any theft tracking involving this unit
-				for (auto& otherUnit : units) {
-					if (otherUnit.stolenFromByUnitId == deletedId) {
-						otherUnit.stolenFromByUnitId = -1;
-						otherUnit.fightingTargetId = -1;
-					}
-					if (otherUnit.fightingTargetId == deletedId) {
-						otherUnit.fightingTargetId = -1;
-					}
-				}
-				
-				// Clear carried items
-				if (it->carriedFoodId != -1) {
-					auto foodIt = std::find_if(app.foodManager->getFood().begin(), 
-					                           app.foodManager->getFood().end(),
-					                           [&](const Food& food) { return food.foodId == it->carriedFoodId; });
-					if (foodIt != app.foodManager->getFood().end()) {
-						foodIt->carriedByUnitId = -1;
-					}
-				}
-				
-				if (it->carriedSeedId != -1) {
-					auto seedIt = std::find_if(app.seedManager->getSeeds().begin(), 
-					                           app.seedManager->getSeeds().end(),
-					                           [&](const Seed& seed) { return seed.seedId == it->carriedSeedId; });
-					if (seedIt != app.seedManager->getSeeds().end()) {
-						seedIt->carriedByUnitId = -1;
-					}
-				}
-				
-				it = units.erase(it);
-			} else {
-				++it;
-			}
-		}
+                // --- AUTO BRING FOOD TO HOUSE LOGIC ---
+                bool alreadyBringingFood = false;
+                if (!unit.actionQueue.empty()) {
+                    const Action& current = unit.actionQueue.top();
+                    if (current.type == ActionType::BringItemToHouse && current.itemType == "food") {
+                        alreadyBringingFood = true;
+                    }
+                }
+
+                if (!alreadyBringingFood && g_HouseManager && app.foodManager && !app.foodManager->getFood().empty()) {
+                    for (auto& house : g_HouseManager->houses) {
+                        if (house.ownerUnitId == unit.id &&
+                            house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
+                            if (house.hasSpace()) {
+                                bool hasFreeFood = false;
+                                for (const auto& food : app.foodManager->getFood()) {
+                                    if (food.carriedByUnitId == -1 && food.ownedByHouseId == -1) {
+                                        hasFreeFood = true;
+                                        break;
+                                    }
+                                }
+                                if (hasFreeFood) {
+                                    unit.bringItemToHouse("food");
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+
+                // --- HUNGER LOGIC START ---
+                if (now - unit.lastHungerUpdate >= HUNGER_DECAY_MS) {
+                    if (unit.hunger > 0) {
+                        unit.hunger -= 1;
+                    }
+                    unit.lastHungerUpdate = now;
+                }
+                // --- HUNGER LOGIC END ---
+
+                // --- MORALITY LOGIC START ---
+                if (now - unit.lastMoralityUpdate >= MORALITY_UPDATE_MS) {
+                    if (unit.hunger < 50) {
+                        if (unit.morality > 0) unit.morality -= 1;
+                    } else if (unit.hunger > 50) {
+                        if (unit.morality < 100) unit.morality += 1;
+                    }
+                    unit.lastMoralityUpdate = now;
+                }
+                // --- MORALITY LOGIC END ---
+
+                // Print debug every 30 seconds
+                if (now - unit.lastHungerDebugPrint >= 30000) {
+                    std::cout << "Unit " << unit.name
+                              << " (id " << unit.id << ") hunger: " << unit.hunger
+                              << " Morality:" << unit.morality << " Health: " << unit.health << std::endl;
+                    unit.lastHungerDebugPrint = now;
+                }
+
+                // --- EAT FROM HOUSE LOGIC ---
+                bool tryingToEatFromHouse = false;
+                if ((frameCounter % HUNGER_CHECK_FRAMES == 0) && unit.hunger < 50) {
+                    bool alreadyEatingFromHouse = false;
+                    if (!unit.actionQueue.empty()) {
+                        const Action& current = unit.actionQueue.top();
+                        if (current.type == ActionType::EatFromHouse) alreadyEatingFromHouse = true;
+                    }
+                    if (!alreadyEatingFromHouse && g_HouseManager) {
+                        for (auto& house : g_HouseManager->houses) {
+                            if (house.ownerUnitId == unit.id &&
+                                house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
+                                if (house.hasItem("food")) {
+                                    unit.eatFromHouse();
+                                    tryingToEatFromHouse = true;
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // --- STEALING LOGIC ---
+                bool tryingToSteal = false;
+                if ((frameCounter % HUNGER_CHECK_FRAMES == 0) && unit.morality < 10 && unit.hunger <= 30) {
+                    bool alreadyStealing = false;
+                    if (!unit.actionQueue.empty()) {
+                        const Action& current = unit.actionQueue.top();
+                        if (current.type == ActionType::StealFood) alreadyStealing = true;
+                    }
+                    if (!alreadyStealing && g_HouseManager) {
+                        for (auto& house : g_HouseManager->houses) {
+                            if (house.hasFood()) {
+                                unit.addAction(Action(ActionType::StealFood, 8));
+                                tryingToSteal = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // --- FIND FOOD IN WORLD LOGIC ---
+                if ((frameCounter % HUNGER_CHECK_FRAMES == 0) && unit.hunger <= 99 && !tryingToEatFromHouse && !tryingToSteal) {
+                    bool alreadySeekingFood = false;
+                    if (!unit.actionQueue.empty()) {
+                        const Action& current = unit.actionQueue.top();
+                        if (current.type == ActionType::Eat) alreadySeekingFood = true;
+                    }
+                    if (!alreadySeekingFood) {
+                        unit.tryFindAndPathToFood(*app.cellGrid, app.foodManager->getFood());
+                    }
+                }
+
+                // --- AUTO COLLECT SEEDS LOGIC (Priority 3) ---
+                if (app.seedManager && !app.seedManager->getSeeds().empty()) {
+                    bool alreadyCollectingSeed = false;
+                    if (!unit.actionQueue.empty()) {
+                        const Action& current = unit.actionQueue.top();
+                        if (current.type == ActionType::CollectSeed) alreadyCollectingSeed = true;
+                    }
+                    if (!alreadyCollectingSeed && g_HouseManager) {
+                        for (auto& house : g_HouseManager->houses) {
+                            if (house.ownerUnitId == unit.id &&
+                                house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
+                                if (house.hasSpace()) {
+                                    bool hasCollectableSeed = false;
+                                    for (const auto& seed : app.seedManager->getSeeds()) {
+                                        if (seed.carriedByUnitId == -1 &&
+                                            (seed.ownedByHouseId == -1 || seed.ownedByHouseId == unit.id)) {
+                                            bool isPlantedInFarm = false;
+                                            if (g_FarmManager) {
+                                                for (const auto& farm : g_FarmManager->farms) {
+                                                    for (int dx = 0; dx < 3 && !isPlantedInFarm; ++dx) {
+                                                        for (int dy = 0; dy < 3; ++dy) {
+                                                            if (farm.plantIds[dx][dy] == seed.seedId) {
+                                                                isPlantedInFarm = true;
+                                                                break;
+                                                            }
+                                                        }
+                                                    }
+                                                    if (isPlantedInFarm) break;
+                                                }
+                                            }
+                                            if (!isPlantedInFarm) {
+                                                hasCollectableSeed = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    if (hasCollectableSeed) {
+                                        unit.addAction(Action(ActionType::CollectSeed, 3));
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // --- AUTO COLLECT COINS LOGIC (Priority 3) ---
+                if (app.coinManager && !app.coinManager->getCoins().empty()) {
+                    bool alreadyCollectingCoin = false;
+                    if (!unit.actionQueue.empty()) {
+                        const Action& current = unit.actionQueue.top();
+                        if (current.type == ActionType::CollectCoin) alreadyCollectingCoin = true;
+                    }
+                    if (!alreadyCollectingCoin && g_HouseManager) {
+                        for (auto& house : g_HouseManager->houses) {
+                            if (house.ownerUnitId == unit.id &&
+                                house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
+                                if (house.hasSpace()) {
+                                    int unitGridX, unitGridY;
+                                    app.cellGrid->pixelToGrid(unit.x, unit.y, unitGridX, unitGridY);
+                                    bool hasCollectableCoin = false;
+                                    for (const auto& coin : app.coinManager->getCoins()) {
+                                        if (coin.carriedByUnitId == -1 && coin.ownedByHouseId == -1) {
+                                            int coinGridX, coinGridY;
+                                            app.cellGrid->pixelToGrid(coin.x, coin.y, coinGridX, coinGridY);
+                                            int distance = abs(coinGridX - unitGridX) + abs(coinGridY - unitGridY);
+                                            if (distance <= 20) {
+                                                hasCollectableCoin = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    if (hasCollectableCoin) {
+                                        unit.addAction(Action(ActionType::CollectCoin, 3));
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // --- AUTO BUILD FARM LOGIC (Priority 4) ---
+                if (g_HouseManager && g_FarmManager) {
+                    bool alreadyBuildingFarm = false;
+                    if (!unit.actionQueue.empty()) {
+                        const Action& current = unit.actionQueue.top();
+                        if (current.type == ActionType::BuildFarm) alreadyBuildingFarm = true;
+                    }
+                    if (!alreadyBuildingFarm) {
+                        for (auto& house : g_HouseManager->houses) {
+                            if (house.ownerUnitId == unit.id &&
+                                house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
+                                if (house.hasSeed()) {
+                                    bool farmExists = false;
+                                    for (const auto& farm : g_FarmManager->farms) {
+                                        if (farm.ownerUnitId == unit.id) {
+                                            farmExists = true;
+                                            break;
+                                        }
+                                    }
+                                    if (!farmExists) {
+                                        unit.addAction(Action(ActionType::BuildFarm, 4));
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // --- AUTO PLANT SEEDS LOGIC (Priority 4) ---
+                if (g_HouseManager && g_FarmManager) {
+                    bool alreadyPlanting = false;
+                    if (!unit.actionQueue.empty()) {
+                        const Action& current = unit.actionQueue.top();
+                        if (current.type == ActionType::PlantSeed) alreadyPlanting = true;
+                    }
+                    if (!alreadyPlanting) {
+                        for (auto& farm : g_FarmManager->farms) {
+                            if (farm.ownerUnitId == unit.id && farm.hasSpace()) {
+                                for (auto& house : g_HouseManager->houses) {
+                                    if (house.ownerUnitId == unit.id &&
+                                        house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
+                                        if (house.hasSeed()) {
+                                            unit.addAction(Action(ActionType::PlantSeed, 4));
+                                        }
+                                        break;
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // --- AUTO HARVEST FOOD LOGIC (Priority 4) ---
+                if (g_FarmManager) {
+                    bool alreadyHarvesting = false;
+                    if (!unit.actionQueue.empty()) {
+                        const Action& current = unit.actionQueue.top();
+                        if (current.type == ActionType::HarvestFood) alreadyHarvesting = true;
+                    }
+                    if (!alreadyHarvesting) {
+                        for (auto& farm : g_FarmManager->farms) {
+                            if (farm.ownerUnitId == unit.id) {
+                                Uint32 currentTime = SDL_GetTicks();
+                                if (farm.getFirstGrownFoodId(currentTime) != -1) {
+                                    unit.addAction(Action(ActionType::HarvestFood, 4));
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // --- AUTO SELL AT MARKET LOGIC (Priority 2) ---
+                if (g_HouseManager && g_MarketManager) {
+                    bool alreadySelling = false;
+                    bool alreadyBringingCoin = false;
+                    if (!unit.actionQueue.empty()) {
+                        const Action& current = unit.actionQueue.top();
+                        if (current.type == ActionType::SellAtMarket) alreadySelling = true;
+                        if (current.type == ActionType::BringCoinToHouse) alreadyBringingCoin = true;
+                    }
+                    bool isBusyWithCoin = alreadyBringingCoin || unit.carriedCoinId != -1 || !unit.receivedCoins.empty();
+
+                    if (!alreadySelling && !isBusyWithCoin && unit.isSelling && unit.sellingStallX != -1) {
+                        bool shouldResume = false;
+                        for (auto& house : g_HouseManager->houses) {
+                            if (house.ownerUnitId == unit.id &&
+                                house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
+                                if (!house.hasSpace() && house.hasFood()) shouldResume = true;
+                                break;
+                            }
+                        }
+                        if (shouldResume) {
+                            unit.addAction(Action(ActionType::SellAtMarket, 2));
+                        } else {
+                            unit.isSelling = false;
+                            unit.sellingStallX = -1;
+                            unit.sellingStallY = -1;
+                        }
+                    } else if (!alreadySelling && !isBusyWithCoin && !unit.isSelling) {
+                        for (auto& house : g_HouseManager->houses) {
+                            if (house.ownerUnitId == unit.id &&
+                                house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
+                                if (!house.hasSpace() && house.hasFood()) {
+                                    unit.addAction(Action(ActionType::SellAtMarket, 2));
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // --- AUTO BUY AT MARKET LOGIC (Priority 2) ---
+                if (g_HouseManager && g_MarketManager) {
+                    bool alreadyBuying = false;
+                    if (!unit.actionQueue.empty()) {
+                        const Action& current = unit.actionQueue.top();
+                        if (current.type == ActionType::BuyAtMarket) alreadyBuying = true;
+                    }
+                    if (!alreadyBuying) {
+                        for (auto& house : g_HouseManager->houses) {
+                            if (house.ownerUnitId == unit.id &&
+                                house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
+                                bool needsFood = house.hasSpace() || !house.hasFood();
+                                if (needsFood && house.hasCoin()) {
+                                    bool hasActiveSeller = false;
+                                    for (const auto& market : g_MarketManager->markets) {
+                                        if (market.hasActiveSeller()) {
+                                            hasActiveSeller = true;
+                                            break;
+                                        }
+                                    }
+                                    if (hasActiveSeller) {
+                                        unit.addAction(Action(ActionType::BuyAtMarket, 2));
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // --- FIGHT LOGIC ---
+                if (unit.stolenFromByUnitId != -1) {
+                    Unit* thiefUnit = nullptr;
+                    if (app.unitManager) {
+                        for (auto& otherUnit : app.unitManager->getUnits()) {
+                            if (otherUnit.id == unit.stolenFromByUnitId) {
+                                thiefUnit = &otherUnit;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (thiefUnit) {
+                        int unitGridX, unitGridY, thiefGridX, thiefGridY;
+                        app.cellGrid->pixelToGrid(unit.x, unit.y, unitGridX, unitGridY);
+                        app.cellGrid->pixelToGrid(thiefUnit->x, thiefUnit->y, thiefGridX, thiefGridY);
+                        int dist = abs(thiefGridX - unitGridX) + abs(thiefGridY - unitGridY);
+
+                        if (dist <= 5) {
+                            bool alreadyFighting = false;
+                            if (!unit.actionQueue.empty()) {
+                                const Action& current = unit.actionQueue.top();
+                                if (current.type == ActionType::Fight) alreadyFighting = true;
+                            }
+                            if (!alreadyFighting) {
+                                unit.addAction(Action(ActionType::Fight, 9));
+                                unit.fightingTargetId = thiefUnit->id;
+                            }
+
+                            if (dist <= 1 && !unit.isClamped) {
+                                unit.isClamped = true;
+                                thiefUnit->isClamped = true;
+                                unit.fightStartTime = now;
+                                thiefUnit->fightStartTime = now;
+
+                                thiefUnit->health -= 10;
+                                std::cout << unit.name << " has hit " << thiefUnit->name
+                                          << " for 10 damage for stealing from them!" << std::endl;
+
+                                unit.stolenFromByUnitId = -1;
+                                unit.fightingTargetId = -1;
+
+                                // Clear the thief's action queue (safe swap)
+                                std::priority_queue<Action, std::vector<Action>, ActionComparator> emptyQ;
+                                std::swap(thiefUnit->actionQueue, emptyQ);
+
+                                // Movement speed will be restored in unclamp logic below
+                            }
+
+                            if (!unit.isClamped && (unit.path.empty() || frameCounter % 30 == 0)) {
+                                auto newPath = aStarFindPath(unitGridX, unitGridY, thiefGridX, thiefGridY, *app.cellGrid);
+                                if (!newPath.empty()) {
+                                    unit.path = newPath;
+                                    unit.moveDelay = 30; // faster pursuit
+                                }
+                            }
+                        } else {
+                            // Too far -> give up
+                            unit.stolenFromByUnitId = -1;
+                            unit.fightingTargetId = -1;
+                            unit.moveDelay = 50;
+                            if (!unit.actionQueue.empty()) {
+                                const Action& current = unit.actionQueue.top();
+                                if (current.type == ActionType::Fight) {
+                                    if (!unit.actionQueue.empty()) unit.actionQueue.pop();
+                                }
+                            }
+                        }
+                    } else {
+                        // Thief not found
+                        unit.stolenFromByUnitId = -1;
+                        unit.fightingTargetId = -1;
+                        unit.moveDelay = 50;
+                        if (!unit.actionQueue.empty()) {
+                            const Action& current = unit.actionQueue.top();
+                            if (current.type == ActionType::Fight) {
+                                if (!unit.actionQueue.empty()) unit.actionQueue.pop();
+                            }
+                        }
+                    }
+                }
+
+                // Handle unclamp after fight
+                if (unit.isClamped && now - unit.fightStartTime >= FIGHT_CLAMP_MS) {
+                    unit.isClamped = false;
+                    unit.fightStartTime = 0;
+                    unit.moveDelay = 50;
+                    if (!unit.actionQueue.empty()) {
+                        const Action& current = unit.actionQueue.top();
+                        if (current.type == ActionType::Fight) {
+                            if (!unit.actionQueue.empty()) unit.actionQueue.pop();
+                        }
+                    }
+                }
+
+                if (unit.isClamped) {
+                    unit.path.clear();
+                }
+
+                // Process actions and movement
+                if (!unit.actionQueue.empty() || !unit.path.empty()) {
+                    unit.processAction(*app.cellGrid, app.foodManager->getFood(), app.seedManager->getSeeds(), app.coinManager->getCoins());
+                }
+
+                // Ensure a default Wander action exists
+                if (unit.actionQueue.empty()) {
+                    unit.addAction(Action(ActionType::Wander, 1));
+                }
+            } // end for units
+        } // end if unitManager
+
+        // --- TRACK THEFT VICTIMS ---
+        if (app.unitManager) {
+            for (auto& thief : app.unitManager->getUnits()) {
+                if (thief.justStoleFromUnitId != -1) {
+                    for (auto& victim : app.unitManager->getUnits()) {
+                        if (victim.id == thief.justStoleFromUnitId) {
+                            victim.stolenFromByUnitId = thief.id;
+                            std::cout << "Victim " << victim.name << " (id " << victim.id
+                                      << ") now knows that " << thief.name << " (id " << thief.id
+                                      << ") stole from them" << std::endl;
+                            break;
+                        }
+                    }
+                    thief.justStoleFromUnitId = -1;
+                }
+            }
+        }
+
+        // --- HANDLE COIN OWNERSHIP FROM MARKET TRANSACTIONS ---
+        if (app.coinManager && app.unitManager) {
+            for (auto& coin : app.coinManager->getCoins()) {
+                if (coin.ownedByHouseId != -1 && coin.carriedByUnitId == -1) {
+                    for (auto& seller : app.unitManager->getUnits()) {
+                        if (seller.id == coin.ownedByHouseId) {
+                            bool alreadyAdded = false;
+                            for (int receivedCoin : seller.receivedCoins) {
+                                if (receivedCoin == coin.coinId) {
+                                    alreadyAdded = true;
+                                    break;
+                                }
+                            }
+                            if (!alreadyAdded) {
+                                seller.receivedCoins.push_back(coin.coinId);
+                                std::cout << "Market: Seller " << seller.name << " (id " << seller.id
+                                          << ") received coin (id " << coin.coinId << ") from sale.\n";
+                                // Clear seller selling status
+                                seller.isSelling = false;
+                                seller.sellingStallX = -1;
+                                seller.sellingStallY = -1;
+                                // Mark coin as processed (no longer a fresh market coin)
+                                coin.fromMarketSale = false;
+                            } else {
+                                // If already added previously, ensure coin flag is cleared
+                                coin.fromMarketSale = false;
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- DELETE DEAD UNITS ---
+        if (app.unitManager) {
+            auto& units = app.unitManager->getUnits();
+            auto it = units.begin();
+            while (it != units.end()) {
+                bool shouldDelete = false;
+                std::string deleteReason;
+
+                if (it->hunger <= 0) {
+                    shouldDelete = true;
+                    deleteReason = "hunger reached 0";
+                } else if (it->health <= 0) {
+                    shouldDelete = true;
+                    deleteReason = "health reached 0";
+                }
+
+                if (shouldDelete) {
+                    std::cout << "Unit " << it->name << " (id " << it->id << ") has died: " << deleteReason << std::endl;
+
+                    int deletedId = it->id;
+
+                    // Clear theft/fight references
+                    for (auto& otherUnit : units) {
+                        if (otherUnit.stolenFromByUnitId == deletedId) {
+                            otherUnit.stolenFromByUnitId = -1;
+                            otherUnit.fightingTargetId = -1;
+                        }
+                        if (otherUnit.fightingTargetId == deletedId) {
+                            otherUnit.fightingTargetId = -1;
+                        }
+                    }
+
+                    // Clear carried items (food)
+                    if (it->carriedFoodId != -1 && app.foodManager) {
+                        auto foodIt = std::find_if(app.foodManager->getFood().begin(),
+                                                   app.foodManager->getFood().end(),
+                                                   [&](const Food& food) { return food.foodId == it->carriedFoodId; });
+                        if (foodIt != app.foodManager->getFood().end()) {
+                            foodIt->carriedByUnitId = -1;
+                        }
+                    }
+
+                    // Clear carried seeds
+                    if (it->carriedSeedId != -1 && app.seedManager) {
+                        auto seedIt = std::find_if(app.seedManager->getSeeds().begin(),
+                                                   app.seedManager->getSeeds().end(),
+                                                   [&](const Seed& seed) { return seed.seedId == it->carriedSeedId; });
+                        if (seedIt != app.seedManager->getSeeds().end()) {
+                            seedIt->carriedByUnitId = -1;
+                        }
+                    }
+
+                    it = units.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+        }
 
         // --- RENDERING ---
         SDL_SetRenderDrawColor(app.renderer, 0, 0, 0, 255);
@@ -814,54 +700,50 @@ void runMainLoop(sdl& app) {
 
         renderCellGrid(app.renderer, *app.cellGrid, app.showCellGrid);
 
-		// --- RENDER HOUSES ---
-		// Render house tiles (brown background)
-		// Food items inside houses are rendered by the FoodManager in its own pass
-		if (g_HouseManager) {
-			SDL_SetRenderDrawColor(app.renderer, 139, 69, 19, 255); // Brown
-			for (const auto& s : g_HouseManager->houses) {
-				for (int dx = 0; dx < 3; ++dx) {
-					for (int dy = 0; dy < 3; ++dy) {
-						int px, py;
-						app.cellGrid->gridToPixel(s.gridX + dx, s.gridY + dy, px, py);
-						SDL_Rect rect = { px, py, GRID_SIZE, GRID_SIZE };
-						SDL_RenderFillRect(app.renderer, &rect);
-					}
-				}
-			}
-		}
+        // --- RENDER HOUSES ---
+        if (g_HouseManager) {
+            SDL_SetRenderDrawColor(app.renderer, 139, 69, 19, 255); // Brown
+            for (const auto& s : g_HouseManager->houses) {
+                for (int dx = 0; dx < 3; ++dx) {
+                    for (int dy = 0; dy < 3; ++dy) {
+                        int px, py;
+                        app.cellGrid->gridToPixel(s.gridX + dx, s.gridY + dy, px, py);
+                        SDL_Rect rect = { px, py, GRID_SIZE, GRID_SIZE };
+                        SDL_RenderFillRect(app.renderer, &rect);
+                    }
+                }
+            }
+        }
 
-		// --- RENDER FARMS ---
-		// Render farm tiles (brownish-green background)
-		if (g_FarmManager) {
-			SDL_SetRenderDrawColor(app.renderer, 107, 142, 35, 255); // Olive drab (brownish-green)
-			for (const auto& farm : g_FarmManager->farms) {
-				for (int dx = 0; dx < 3; ++dx) {
-					for (int dy = 0; dy < 3; ++dy) {
-						int px, py;
-						app.cellGrid->gridToPixel(farm.gridX + dx, farm.gridY + dy, px, py);
-						SDL_Rect rect = { px, py, GRID_SIZE, GRID_SIZE };
-						SDL_RenderFillRect(app.renderer, &rect);
-					}
-				}
-			}
-		}
+        // --- RENDER FARMS ---
+        if (g_FarmManager) {
+            SDL_SetRenderDrawColor(app.renderer, 107, 142, 35, 255); // Olive drab (brownish-green)
+            for (const auto& farm : g_FarmManager->farms) {
+                for (int dx = 0; dx < 3; ++dx) {
+                    for (int dy = 0; dy < 3; ++dy) {
+                        int px, py;
+                        app.cellGrid->gridToPixel(farm.gridX + dx, farm.gridY + dy, px, py);
+                        SDL_Rect rect = { px, py, GRID_SIZE, GRID_SIZE };
+                        SDL_RenderFillRect(app.renderer, &rect);
+                    }
+                }
+            }
+        }
 
-		// --- RENDER MARKETS ---
-		// Render market tiles (light tan background)
-		if (g_MarketManager) {
-			SDL_SetRenderDrawColor(app.renderer, 210, 180, 140, 255); // Light tan
-			for (const auto& market : g_MarketManager->markets) {
-				for (int dx = 0; dx < 3; ++dx) {
-					for (int dy = 0; dy < 3; ++dy) {
-						int px, py;
-						app.cellGrid->gridToPixel(market.gridX + dx, market.gridY + dy, px, py);
-						SDL_Rect rect = { px, py, GRID_SIZE, GRID_SIZE };
-						SDL_RenderFillRect(app.renderer, &rect);
-					}
-				}
-			}
-		}
+        // --- RENDER MARKETS ---
+        if (g_MarketManager) {
+            SDL_SetRenderDrawColor(app.renderer, 210, 180, 140, 255); // Light tan
+            for (const auto& market : g_MarketManager->markets) {
+                for (int dx = 0; dx < 3; ++dx) {
+                    for (int dy = 0; dy < 3; ++dy) {
+                        int px, py;
+                        app.cellGrid->gridToPixel(market.gridX + dx, market.gridY + dy, px, py);
+                        SDL_Rect rect = { px, py, GRID_SIZE, GRID_SIZE };
+                        SDL_RenderFillRect(app.renderer, &rect);
+                    }
+                }
+            }
+        }
 
         // Render units and their paths
         if (app.unitManager) {
@@ -869,23 +751,10 @@ void runMainLoop(sdl& app) {
             app.unitManager->renderUnitPaths(app.renderer, *app.cellGrid);
         }
 
-        // Render food (world food items with 'f' symbols)
-        // This is rendered AFTER houses and units to ensure food is always visible on top
-        if (app.foodManager) {
-            app.foodManager->renderFood(app.renderer);
-        }
-
-        // Render seeds (world seed items with '.' symbols)
-        // This is rendered AFTER food to ensure seeds are visible
-        if (app.seedManager) {
-            app.seedManager->renderSeeds(app.renderer);
-        }
-
-        // Render coins (world coin items with '$' symbols)
-        // This is rendered AFTER seeds to ensure coins are visible
-        if (app.coinManager) {
-            app.coinManager->renderCoins(app.renderer);
-        }
+        // Render food, seeds, coins (in that order to maintain visibility)
+        if (app.foodManager) app.foodManager->renderFood(app.renderer);
+        if (app.seedManager) app.seedManager->renderSeeds(app.renderer);
+        if (app.coinManager) app.coinManager->renderCoins(app.renderer);
 
         SDL_RenderPresent(app.renderer);
         SDL_Delay(16); // ~60 FPS

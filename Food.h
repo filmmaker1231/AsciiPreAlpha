@@ -100,6 +100,7 @@ public:
 	std::string type;   // type of coin
     int x, y;           // Position on the grid
     char symbol;        // Character to display ('$')
+    bool fromMarketSale = false; 
     int coinId;
     int carriedByUnitId; // -1 if not carried, otherwise the unit ID carrying it
     int ownedByHouseId;  // -1 if not owned, otherwise the house owner's unit ID
