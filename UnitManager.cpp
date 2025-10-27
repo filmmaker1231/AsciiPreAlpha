@@ -145,6 +145,14 @@ void initializeGameUnits(UnitManager* unitManager, CellGrid* cellGrid) {
     for (auto& unit : unitManager->getUnits()) {
         unit.moveDelay = 1; 
     }
+
+	// Create a market at a fixed location for testing
+	if (g_MarketManager && cellGrid) {
+		int marketX = 10;  // Grid coordinates
+		int marketY = 10;
+		g_MarketManager->addMarket(Market(marketX, marketY));
+		std::cout << "Initialized market at grid (" << marketX << ", " << marketY << ")\n";
+	}
 }
 
 void UnitManager::renderUnitPaths(SDL_Renderer* renderer, const CellGrid& cellGrid) {

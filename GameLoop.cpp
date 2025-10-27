@@ -34,6 +34,68 @@ void runMainLoop(sdl& app) {
 
         Uint32 now = SDL_GetTicks();
 
+		// --- MARKET STALL ABANDONMENT LOGIC ---
+		// Handle food left at market stalls (after 200 seconds, make food free)
+		if (g_MarketManager) {
+			for (auto& market : g_MarketManager->markets) {
+				for (int dx = 0; dx < 3; ++dx) {
+					for (int dy = 0; dy < 3; ++dy) {
+						if (market.stallFoodIds[dx][dy] != -1) {
+							int sellerId = market.stallSellerIds[dx][dy];
+							// Check if seller is present at the stall
+							bool sellerPresent = false;
+							if (sellerId != -1) {
+								for (const auto& unit : app.unitManager->getUnits()) {
+									if (unit.id == sellerId && unit.isSelling &&
+										unit.sellingStallX == market.gridX + dx &&
+										unit.sellingStallY == market.gridY + dy) {
+										// Seller is at their stall
+										sellerPresent = true;
+										market.stallAbandonTimes[dx][dy] = 0; // Reset abandon timer
+										break;
+									}
+								}
+							}
+							
+							if (!sellerPresent) {
+								// Seller is not at stall
+								if (market.stallAbandonTimes[dx][dy] == 0) {
+									// Start abandon timer
+									market.stallAbandonTimes[dx][dy] = now;
+								} else if (now - market.stallAbandonTimes[dx][dy] >= 200000) {
+									// 200 seconds have passed, make food free
+									int foodId = market.stallFoodIds[dx][dy];
+									auto foodIt = std::find_if(app.foodManager->getFood().begin(),
+																app.foodManager->getFood().end(),
+																[&](const Food& food) { return food.foodId == foodId; });
+									if (foodIt != app.foodManager->getFood().end()) {
+										foodIt->ownedByHouseId = -1;
+										foodIt->carriedByUnitId = -1;
+										std::cout << "Food (id " << foodId << ") at market stall has been abandoned and is now free.\n";
+									}
+									// Clear the stall
+									market.stallFoodIds[dx][dy] = -1;
+									market.stallSellerIds[dx][dy] = -1;
+									market.stallAbandonTimes[dx][dy] = 0;
+									
+									// Clear seller's selling status if they still have it
+									if (sellerId != -1) {
+										for (auto& unit : app.unitManager->getUnits()) {
+											if (unit.id == sellerId && unit.isSelling) {
+												unit.isSelling = false;
+												unit.sellingStallX = -1;
+												unit.sellingStallY = -1;
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
         // Process units
         for (auto& unit : app.unitManager->getUnits()) {
 
@@ -341,6 +403,74 @@ void runMainLoop(sdl& app) {
 			}
 
 
+			// --- AUTO SELL AT MARKET LOGIC (Priority 2) ---
+			// Sell at market if house is full
+			if (g_HouseManager && g_MarketManager) {
+				bool alreadySelling = false;
+				if (!unit.actionQueue.empty()) {
+					Action current = unit.actionQueue.top();
+					if (current.type == ActionType::SellAtMarket) {
+						alreadySelling = true;
+					}
+				}
+				
+				// If unit is marked as selling but not actively selling, resume selling
+				if (!alreadySelling && unit.isSelling && unit.sellingStallX != -1) {
+					// Resume selling at their stall
+					unit.addAction(Action(ActionType::SellAtMarket, 2));
+				} else if (!alreadySelling && !unit.isSelling) {
+					// Check if unit's house is full and has food
+					for (auto& house : g_HouseManager->houses) {
+						if (house.ownerUnitId == unit.id &&
+							house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
+							if (!house.hasSpace() && house.hasFood()) {
+								// House is full and has food to sell
+								unit.addAction(Action(ActionType::SellAtMarket, 2));
+							}
+							break;
+						}
+					}
+				}
+			}
+
+			// --- AUTO BUY AT MARKET LOGIC (Priority 2) ---
+			// Buy at market if home is not full of food, has at least 1 coin, and there's a seller
+			if (g_HouseManager && g_MarketManager) {
+				bool alreadyBuying = false;
+				if (!unit.actionQueue.empty()) {
+					Action current = unit.actionQueue.top();
+					if (current.type == ActionType::BuyAtMarket) {
+						alreadyBuying = true;
+					}
+				}
+				
+				if (!alreadyBuying) {
+					// Check if unit's house has space and has a coin
+					for (auto& house : g_HouseManager->houses) {
+						if (house.ownerUnitId == unit.id &&
+							house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
+							// House should not be full of food (check if has space OR only has coins/seeds)
+							bool needsFood = house.hasSpace() || !house.hasFood();
+							if (needsFood && house.hasCoin()) {
+								// Check if there's an active seller at any market
+								bool hasActiveSeller = false;
+								for (const auto& market : g_MarketManager->markets) {
+									if (market.hasActiveSeller()) {
+										hasActiveSeller = true;
+										break;
+									}
+								}
+								if (hasActiveSeller) {
+									unit.addAction(Action(ActionType::BuyAtMarket, 2));
+								}
+							}
+							break;
+						}
+					}
+				}
+			}
+
+
 
 			// --- FIGHT LOGIC ---
 			// If a unit had food stolen from them and the thief is within 5 tiles, fight them
@@ -464,7 +594,7 @@ void runMainLoop(sdl& app) {
 
             // Process queued actions - only if there's something to process
             if (!unit.actionQueue.empty() || !unit.path.empty()) {
-                unit.processAction(*app.cellGrid, app.foodManager->getFood(), app.seedManager->getSeeds());
+                unit.processAction(*app.cellGrid, app.foodManager->getFood(), app.seedManager->getSeeds(), app.coinManager->getCoins());
             }
 
             // If no actions left, re-add Wander
@@ -589,6 +719,22 @@ void runMainLoop(sdl& app) {
 			}
 		}
 
+		// --- RENDER MARKETS ---
+		// Render market tiles (light tan background)
+		if (g_MarketManager) {
+			SDL_SetRenderDrawColor(app.renderer, 210, 180, 140, 255); // Light tan
+			for (const auto& market : g_MarketManager->markets) {
+				for (int dx = 0; dx < 3; ++dx) {
+					for (int dy = 0; dy < 3; ++dy) {
+						int px, py;
+						app.cellGrid->gridToPixel(market.gridX + dx, market.gridY + dy, px, py);
+						SDL_Rect rect = { px, py, GRID_SIZE, GRID_SIZE };
+						SDL_RenderFillRect(app.renderer, &rect);
+					}
+				}
+			}
+		}
+
         // Render units and their paths
         if (app.unitManager) {
             app.unitManager->renderUnits(app.renderer);
@@ -605,6 +751,12 @@ void runMainLoop(sdl& app) {
         // This is rendered AFTER food to ensure seeds are visible
         if (app.seedManager) {
             app.seedManager->renderSeeds(app.renderer);
+        }
+
+        // Render coins (world coin items with '$' symbols)
+        // This is rendered AFTER seeds to ensure coins are visible
+        if (app.coinManager) {
+            app.coinManager->renderCoins(app.renderer);
         }
 
         SDL_RenderPresent(app.renderer);

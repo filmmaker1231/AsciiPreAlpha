@@ -44,7 +44,7 @@ public:
 	std::priority_queue<Action, std::vector<Action>, ActionComparator> actionQueue;
 
 	  void addAction(const Action& action);
-	  void processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vector<Seed>& seeds);
+	  void processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vector<Seed>& seeds, std::vector<Coin>& coins);
 	  void tryFindAndPathToFood(CellGrid& cellGrid, std::vector<Food>& foods);
 	  void bringItemToHouse(const std::string& itemType) {
 		  addAction(Action(ActionType::BringItemToHouse, 5, itemType));
