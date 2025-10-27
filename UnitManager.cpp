@@ -143,7 +143,7 @@ void initializeGameUnits(UnitManager* unitManager, CellGrid* cellGrid) {
 
 	// Set moveDelay for all units after spawning -- Changes speed of OG units
     for (auto& unit : unitManager->getUnits()) {
-        unit.moveDelay = 1; 
+        unit.moveDelay = 100; 
     }
 
 	// Create a market at a fixed location for testing
