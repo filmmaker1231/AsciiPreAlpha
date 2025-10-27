@@ -157,7 +157,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 			});
 
 		if (it != foods.end()) {
-			// Seeds disabled for testing
+			// TODO: Seeds disabled for testing - re-enable after market system testing is complete
 			
 			// Eat the food
 			hunger = 100;
@@ -327,25 +327,8 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 					return food.foodId == foodId;
 				});
 				if (it != foods.end()) {
-					// Drop seeds before eating the food
-					std::random_device rd;
-					std::mt19937 gen(rd());
-					std::uniform_int_distribution<> seedDist(1, 100);
-					int numSeeds = (seedDist(gen) <= 15) ? 0 : 0; // 0% chance for seeds for now
-					
-					int pixelX, pixelY;
-					cellGrid.gridToPixel(unitGridX, unitGridY, pixelX, pixelY);
-					
-					for (int i = 0; i < numSeeds; ++i) {
-						// Create new seed at eating location (in home)
-						Seed newSeed(pixelX, pixelY, "seed", g_nextSeedId++);
-						
-						// Seed dropped in home, owned by homeowner
-						newSeed.ownedByHouseId = id;
-						
-						seeds.push_back(newSeed);
-						std::cout << "Dropped seed " << newSeed.seedId << " in house at (" << unitGridX << ", " << unitGridY << ")\n";
-					}
+					// TODO: Seeds disabled for testing - re-enable after market system testing is complete
+					// When re-enabling, restore seed dropping code here (15% chance for 2 seeds, else 1)
 					
 					hunger = 100;
 					myHouse->removeFoodById(foodId);
@@ -973,7 +956,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 					return food.foodId == foodId;
 				});
 				if (it != foods.end()) {
-					// Seeds disabled for testing
+					// TODO: Seeds disabled for testing - re-enable after market system testing is complete
 					
 					// Eat the stolen food
 					hunger = 100;
@@ -1302,7 +1285,8 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 		if (carriedFoodId != -1) {
 			// Check hunger level
 			if (hunger < 50) {
-				// Consume on the spot (seeds disabled for testing)
+				// TODO: Seeds disabled for testing - re-enable after market system testing is complete
+				// Consume on the spot (when re-enabling, restore seed dropping code: 15% chance for 2 seeds, else 1)
 				
 				// Eat the food
 				hunger = 100;

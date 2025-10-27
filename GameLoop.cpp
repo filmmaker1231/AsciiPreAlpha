@@ -16,6 +16,21 @@
 #include <algorithm> // for find_if
 #include <queue>
 
+// Helper function to clear a seller's SellAtMarket action
+static void clearSellerAction(Unit& seller) {
+    seller.isSelling = false;
+    seller.sellingStallX = -1;
+    seller.sellingStallY = -1;
+    // Clear SellAtMarket action if it's at the top
+    if (!seller.actionQueue.empty()) {
+        const Action& topAction = seller.actionQueue.top();
+        if (topAction.type == ActionType::SellAtMarket) {
+            // re-check not empty before pop
+            if (!seller.actionQueue.empty()) seller.actionQueue.pop();
+        }
+    }
+}
+
 void runMainLoop(sdl& app) {
     bool running = true;
     SDL_Event event;
@@ -86,27 +101,19 @@ void runMainLoop(sdl& app) {
                                         }
                                     }
 
+                                    // Clear seller's selling status if seller unit still exists
+                                    int sellerIdToCheck = stallSellerId;
+                                    
                                     // Clear the stall and reset fields
                                     stallFoodId = -1;
                                     stallSellerId = -1;
                                     // reset timer (only once)
                                     stallAbandonTime = 0;
 
-                                    // Clear seller's selling status if seller unit still exists
-                                    if (stallSellerId != -1 && app.unitManager) {
+                                    if (sellerIdToCheck != -1 && app.unitManager) {
                                         for (auto& unit : app.unitManager->getUnits()) {
-                                            if (unit.id == stallSellerId && unit.isSelling) {
-                                                unit.isSelling = false;
-                                                unit.sellingStallX = -1;
-                                                unit.sellingStallY = -1;
-                                                // Clear SellAtMarket action if it's at the top
-                                                if (!unit.actionQueue.empty()) {
-                                                    const Action& topAction = unit.actionQueue.top();
-                                                    if (topAction.type == ActionType::SellAtMarket) {
-                                                        // re-check not empty before pop
-                                                        if (!unit.actionQueue.empty()) unit.actionQueue.pop();
-                                                    }
-                                                }
+                                            if (unit.id == sellerIdToCheck && unit.isSelling) {
+                                                clearSellerAction(unit);
                                             }
                                         }
                                     }
@@ -633,17 +640,8 @@ void runMainLoop(sdl& app) {
                                 seller.receivedCoins.push_back(coin.coinId);
                                 std::cout << "Market: Seller " << seller.name << " (id " << seller.id
                                           << ") received coin (id " << coin.coinId << ") from sale.\n";
-                                // Clear seller selling status
-                                seller.isSelling = false;
-                                seller.sellingStallX = -1;
-                                seller.sellingStallY = -1;
-                                // Clear SellAtMarket action if it's at the top
-                                if (!seller.actionQueue.empty()) {
-                                    const Action& topAction = seller.actionQueue.top();
-                                    if (topAction.type == ActionType::SellAtMarket) {
-                                        seller.actionQueue.pop();
-                                    }
-                                }
+                                // Clear seller selling status and action
+                                clearSellerAction(seller);
                                 // Mark coin as processed (no longer a fresh market coin)
                                 coin.fromMarketSale = false;
                             } else {
