@@ -25,8 +25,7 @@ static void clearSellerAction(Unit& seller) {
     if (!seller.actionQueue.empty()) {
         const Action& topAction = seller.actionQueue.top();
         if (topAction.type == ActionType::SellAtMarket) {
-            // re-check not empty before pop
-            if (!seller.actionQueue.empty()) seller.actionQueue.pop();
+            seller.actionQueue.pop();
         }
     }
 }

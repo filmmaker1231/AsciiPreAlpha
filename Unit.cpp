@@ -158,6 +158,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 
 		if (it != foods.end()) {
 			// TODO: Seeds disabled for testing - re-enable after market system testing is complete
+			// Original behavior: 15% chance for 2 seeds, 85% chance for 1 seed, dropped at eating location
 			
 			// Eat the food
 			hunger = 100;
@@ -957,6 +958,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 				});
 				if (it != foods.end()) {
 					// TODO: Seeds disabled for testing - re-enable after market system testing is complete
+					// Original behavior: 15% chance for 2 seeds, 85% chance for 1 seed, owned by victim
 					
 					// Eat the stolen food
 					hunger = 100;
@@ -1286,7 +1288,8 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 			// Check hunger level
 			if (hunger < 50) {
 				// TODO: Seeds disabled for testing - re-enable after market system testing is complete
-				// Consume on the spot (when re-enabling, restore seed dropping code: 15% chance for 2 seeds, else 1)
+				// Original behavior: 15% chance for 2 seeds, 85% chance for 1 seed
+				// Consume on the spot
 				
 				// Eat the food
 				hunger = 100;
