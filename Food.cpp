@@ -91,6 +91,55 @@ void FoodManager::renderFoodSymbol(SDL_Renderer* renderer, int x, int y) {
     SDL_FreeSurface(surface);
 }
 
+void FoodManager::renderCoinSymbol(SDL_Renderer* renderer, int x, int y) {
+    if (!font) {
+        return;
+    }
+    
+    SDL_Color color = {255, 215, 0, 255}; // Gold color
+    
+    // Create surface with the coin symbol
+    SDL_Surface* surface = TTF_RenderText_Solid(font, "c", color);
+    if (!surface) {
+        return;
+    }
+    
+    // Create texture from surface
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+    if (texture) {
+        SDL_Rect dstRect = {x, y, surface->w, surface->h};
+        SDL_RenderCopy(renderer, texture, nullptr, &dstRect);
+        SDL_DestroyTexture(texture);
+    }
+    
+    SDL_FreeSurface(surface);
+}
+
+void FoodManager::renderCoinCount(SDL_Renderer* renderer, int x, int y, int count) {
+    if (!font) {
+        return;
+    }
+    
+    SDL_Color color = {255, 215, 0, 255}; // Gold color
+    
+    // Create text with coin count
+    std::string text = std::to_string(count) + "c";
+    SDL_Surface* surface = TTF_RenderText_Solid(font, text.c_str(), color);
+    if (!surface) {
+        return;
+    }
+    
+    // Create texture from surface
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+    if (texture) {
+        SDL_Rect dstRect = {x, y, surface->w, surface->h};
+        SDL_RenderCopy(renderer, texture, nullptr, &dstRect);
+        SDL_DestroyTexture(texture);
+    }
+    
+    SDL_FreeSurface(surface);
+}
+
 std::vector<Food>& FoodManager::getFood() {
     return food;
 }

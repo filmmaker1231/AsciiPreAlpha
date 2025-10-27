@@ -126,6 +126,39 @@ void runMainLoop(sdl& app) {
                         }
                     }
                 }
+                
+                // Render coin count in top-left corner of house
+                if (s.coins > 0 && app.foodManager) {
+                    int px, py;
+                    app.cellGrid->gridToPixel(s.gridX, s.gridY, px, py);
+                    app.foodManager->renderCoinCount(app.renderer, px, py, s.coins);
+                }
+            }
+        }
+
+        // --- RENDER MARKETS ---
+        if (g_MarketManager) {
+            SDL_SetRenderDrawColor(app.renderer, 0, 128, 255, 255); // Blue for markets
+
+            for (const auto& market : g_MarketManager->markets) {
+                for (int dx = 0; dx < 3; ++dx) {
+                    for (int dy = 0; dy < 3; ++dy) {
+                        int px, py;
+                        app.cellGrid->gridToPixel(market.gridX + dx, market.gridY + dy, px, py);
+                        SDL_Rect rect = { px, py, GRID_SIZE, GRID_SIZE };
+                        SDL_RenderFillRect(app.renderer, &rect);
+                    }
+                }
+                
+                // Render market info (stock and price)
+                if (app.foodManager) {
+                    int px, py;
+                    app.cellGrid->gridToPixel(market.gridX, market.gridY, px, py);
+                    // Show food stock in top-left
+                    if (market.foodStock > 0) {
+                        app.foodManager->renderCoinCount(app.renderer, px, py + 20, market.foodStock);
+                    }
+                }
             }
         }
 

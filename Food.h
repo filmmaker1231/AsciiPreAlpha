@@ -44,6 +44,12 @@ public:
     
     // Render a single food symbol at given position
     void renderFoodSymbol(SDL_Renderer* renderer, int x, int y);
+    
+    // Render a coin symbol at given position
+    void renderCoinSymbol(SDL_Renderer* renderer, int x, int y);
+    
+    // Render coin count text at given position
+    void renderCoinCount(SDL_Renderer* renderer, int x, int y, int count);
 
     
     std::vector<Food>& getFood();
