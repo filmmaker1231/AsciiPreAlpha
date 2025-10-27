@@ -220,6 +220,16 @@ struct House {
 	}
 };
 
+struct Market {
+    int gridX, gridY; // Top-left of 3x3 area
+    int foodStock; // Food available for purchase
+    int coins; // Coins in market
+    int foodPrice; // Price per food unit
+    
+    Market(int x, int y, int stock = 5, int startCoins = 50, int price = 3)
+        : gridX(x), gridY(y), foodStock(stock), coins(startCoins), foodPrice(price) {}
+};
+
 class HouseManager {
 public:
     std::vector<House> houses;

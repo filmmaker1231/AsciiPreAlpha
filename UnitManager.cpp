@@ -7,6 +7,11 @@
 #include "Buildings.h"
 #include "Unit.h"
 
+// Market initialization constants
+const int DEFAULT_MARKET_STOCK = 10;      // Initial food stock in market
+const int DEFAULT_MARKET_COINS = 100;     // Initial coins in market
+const int DEFAULT_MARKET_PRICE = 3;       // Price per food item
+
 UnitManager::UnitManager() : font(nullptr) {
 }
 

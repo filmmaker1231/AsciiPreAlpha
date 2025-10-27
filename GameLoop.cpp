@@ -14,6 +14,12 @@
 #include <SDL_ttf.h>
 #include <iostream>
 
+// Trading system constants
+const int TRADING_CHECK_INTERVAL = 300;  // Check every 300 frames (~5 seconds at 60 FPS)
+const int EXCESS_FOOD_THRESHOLD = 2;     // Sell when house has more than this many food items
+const int LOW_FOOD_THRESHOLD = 1;        // Buy when house has fewer than this many food items
+const int MIN_COINS_FOR_PURCHASE = 3;    // Minimum coins needed to consider buying food
+
 void runMainLoop(sdl& app) {
     bool running = true;
     SDL_Event event;
@@ -259,12 +265,58 @@ void runMainLoop(sdl& app) {
                 bool alreadySeekingFood = false;
                 if (!unit.actionQueue.empty()) {
                     Action current = unit.actionQueue.top();
-                    if (current.type == ActionType::Eat) {
+                    if (current.type == ActionType::Eat || current.type == ActionType::BringFoodToHouse) {
                         alreadySeekingFood = true;
                     }
                 }
                 if (!alreadySeekingFood) {
-                    unit.tryFindAndPathToFood(*app.cellGrid, app.foodManager->getFood());
+                    // If hunger below 50, try to eat from house
+                    if (unit.hunger < 50) {
+                        unit.tryEatFromHouse();
+                    } else {
+                        // Otherwise, try to find food to bring home
+                        unit.tryFindAndPathToFood(*app.cellGrid, app.foodManager->getFood());
+                    }
+                }
+            }
+            
+            // Market trading logic - check every TRADING_CHECK_INTERVAL frames
+            if ((frameCounter % TRADING_CHECK_INTERVAL == 0) && g_HouseManager && g_MarketManager && !g_MarketManager->markets.empty()) {
+                // Find unit's house
+                for (const auto& house : g_HouseManager->houses) {
+                    if (house.ownerUnitId == unit.id) {
+                        // If unit has excess food (more than EXCESS_FOOD_THRESHOLD), consider selling
+                        if (house.foodIds.size() > EXCESS_FOOD_THRESHOLD) {
+                            bool alreadyTrading = false;
+                            if (!unit.actionQueue.empty()) {
+                                Action current = unit.actionQueue.top();
+                                if (current.type == ActionType::SellFoodAtMarket || 
+                                    current.type == ActionType::BuyFoodAtMarket) {
+                                    alreadyTrading = true;
+                                }
+                            }
+                            if (!alreadyTrading) {
+                                unit.addAction(Action(ActionType::SellFoodAtMarket, 5));
+                                std::cout << "Unit " << unit.name << " will sell food at market\n";
+                            }
+                        }
+                        // If unit has low food (less than LOW_FOOD_THRESHOLD) and enough coins, consider buying
+                        else if (house.foodIds.size() < LOW_FOOD_THRESHOLD && house.coins >= MIN_COINS_FOR_PURCHASE) {
+                            bool alreadyTrading = false;
+                            if (!unit.actionQueue.empty()) {
+                                Action current = unit.actionQueue.top();
+                                if (current.type == ActionType::SellFoodAtMarket || 
+                                    current.type == ActionType::BuyFoodAtMarket) {
+                                    alreadyTrading = true;
+                                }
+                            }
+                            if (!alreadyTrading) {
+                                unit.addAction(Action(ActionType::BuyFoodAtMarket, 7));
+                                std::cout << "Unit " << unit.name << " will buy food at market\n";
+                            }
+                        }
+                        break;
+                    }
                 }
             }
 
