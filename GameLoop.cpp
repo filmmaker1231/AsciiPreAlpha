@@ -54,8 +54,11 @@ void runMainLoop(sdl& app) {
         }
 
         handleInput(app);
-        pathClick(app);
-        ++frameCounter;
+        
+        // Only process game logic when not paused
+        if (!app.isPaused) {
+            pathClick(app);
+            ++frameCounter;
 
         Uint32 now = SDL_GetTicks();
 
@@ -741,6 +744,8 @@ void runMainLoop(sdl& app) {
                 }
             }
         }
+        
+        } // End of if (!app.isPaused)
 
         // --- RENDERING ---
         SDL_SetRenderDrawColor(app.renderer, 0, 0, 0, 255);
@@ -803,6 +808,23 @@ void runMainLoop(sdl& app) {
         if (app.foodManager) app.foodManager->renderFood(app.renderer);
         if (app.seedManager) app.seedManager->renderSeeds(app.renderer);
         if (app.coinManager) app.coinManager->renderCoins(app.renderer);
+
+        // Render pause indicator
+        if (app.isPaused) {
+            // Draw a semi-transparent overlay
+            SDL_SetRenderDrawBlendMode(app.renderer, SDL_BLENDMODE_BLEND);
+            SDL_SetRenderDrawColor(app.renderer, 0, 0, 0, 128); // Semi-transparent black
+            SDL_Rect overlayRect = { 0, 0, 800, 600 }; // Cover entire screen (assuming 800x600)
+            SDL_RenderFillRect(app.renderer, &overlayRect);
+            
+            // Draw a "PAUSED" indicator box in the center
+            SDL_SetRenderDrawColor(app.renderer, 255, 255, 0, 255); // Yellow
+            SDL_Rect pauseBox = { 350, 275, 100, 50 };
+            SDL_RenderFillRect(app.renderer, &pauseBox);
+            
+            // Reset blend mode
+            SDL_SetRenderDrawBlendMode(app.renderer, SDL_BLENDMODE_NONE);
+        }
 
         SDL_RenderPresent(app.renderer);
         SDL_Delay(16); // ~60 FPS

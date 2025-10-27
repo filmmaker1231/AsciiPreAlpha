@@ -8,6 +8,8 @@ void handleInput(sdl& app);
 extern Uint32 lastUnitSpawnTime;
 extern Uint32 lastFoodSpawnTime;
 extern Uint32 lastDeleteTime;
+extern Uint32 lastPauseToggleTime;
 const Uint32 SPAWN_DEBOUNCE_MS = 300; // 300ms between spawns
 const Uint32 DELETE_DEBOUNCE_MS = 200; // 200ms between deletes
+const Uint32 PAUSE_DEBOUNCE_MS = 200; // 200ms between pause toggles
 
