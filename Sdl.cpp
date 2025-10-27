@@ -35,6 +35,9 @@ sdl runSdl() {
     // Initialize the global house manager
     g_HouseManager = new HouseManager();
     
+    // Initialize the global market manager
+    g_MarketManager = new MarketManager();
+    
     return state;
 }
 
@@ -57,6 +60,10 @@ void sdlDestroyWindow(sdl& app) {
     if (g_HouseManager) {
         delete g_HouseManager;
         g_HouseManager = nullptr;
+    }
+    if (g_MarketManager) {
+        delete g_MarketManager;
+        g_MarketManager = nullptr;
     }
     TTF_Quit();
     SDL_Quit();

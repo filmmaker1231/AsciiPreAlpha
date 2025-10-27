@@ -7,6 +7,11 @@
 #include "Buildings.h"
 #include "Unit.h"
 
+// Market initialization constants
+const int DEFAULT_MARKET_STOCK = 10;      // Initial food stock in market
+const int DEFAULT_MARKET_COINS = 100;     // Initial coins in market
+const int DEFAULT_MARKET_PRICE = 3;       // Price per food item
+
 UnitManager::UnitManager() : font(nullptr) {
 }
 
@@ -112,6 +117,21 @@ void initializeGameUnits(UnitManager* unitManager, CellGrid* cellGrid) {
     // Set moveDelay for all units after spawning
     for (auto& unit : unitManager->getUnits()) {
         unit.moveDelay = 50;
+    }
+    
+    // Initialize markets if MarketManager exists
+    if (g_MarketManager && cellGrid) {
+        int gridWidth = cellGrid->getWidthInCells();
+        int gridHeight = cellGrid->getHeightInCells();
+        
+        // Create a market in the middle of the map
+        int marketX = gridWidth / 2;
+        int marketY = gridHeight / 2;
+        g_MarketManager->addMarket(Market(marketX, marketY, 
+                                          DEFAULT_MARKET_STOCK, 
+                                          DEFAULT_MARKET_COINS, 
+                                          DEFAULT_MARKET_PRICE));
+        std::cout << "Created market at (" << marketX << ", " << marketY << ")\n";
     }
 }
 

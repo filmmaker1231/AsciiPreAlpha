@@ -13,6 +13,12 @@
 #include <SDL_ttf.h>
 #include <iostream>
 
+// Trading system constants
+const int TRADING_CHECK_INTERVAL = 300;  // Check every 300 frames (~5 seconds at 60 FPS)
+const int EXCESS_FOOD_THRESHOLD = 2;     // Sell when house has more than this many food items
+const int LOW_FOOD_THRESHOLD = 1;        // Buy when house has fewer than this many food items
+const int MIN_COINS_FOR_PURCHASE = 3;    // Minimum coins needed to consider buying food
+
 void runMainLoop(sdl& app) {
     bool running = true;
     SDL_Event event;
@@ -74,6 +80,46 @@ void runMainLoop(sdl& app) {
                     }
                 }
             }
+            
+            // Market trading logic - check every TRADING_CHECK_INTERVAL frames
+            if ((frameCounter % TRADING_CHECK_INTERVAL == 0) && g_HouseManager && g_MarketManager && !g_MarketManager->markets.empty()) {
+                // Find unit's house
+                for (const auto& house : g_HouseManager->houses) {
+                    if (house.ownerUnitId == unit.id) {
+                        // If unit has excess food (more than EXCESS_FOOD_THRESHOLD), consider selling
+                        if (house.foodIds.size() > EXCESS_FOOD_THRESHOLD) {
+                            bool alreadyTrading = false;
+                            if (!unit.actionQueue.empty()) {
+                                Action current = unit.actionQueue.top();
+                                if (current.type == ActionType::SellFoodAtMarket || 
+                                    current.type == ActionType::BuyFoodAtMarket) {
+                                    alreadyTrading = true;
+                                }
+                            }
+                            if (!alreadyTrading) {
+                                unit.addAction(Action(ActionType::SellFoodAtMarket, 5));
+                                std::cout << "Unit " << unit.name << " will sell food at market\n";
+                            }
+                        }
+                        // If unit has low food (less than LOW_FOOD_THRESHOLD) and enough coins, consider buying
+                        else if (house.foodIds.size() < LOW_FOOD_THRESHOLD && house.coins >= MIN_COINS_FOR_PURCHASE) {
+                            bool alreadyTrading = false;
+                            if (!unit.actionQueue.empty()) {
+                                Action current = unit.actionQueue.top();
+                                if (current.type == ActionType::SellFoodAtMarket || 
+                                    current.type == ActionType::BuyFoodAtMarket) {
+                                    alreadyTrading = true;
+                                }
+                            }
+                            if (!alreadyTrading) {
+                                unit.addAction(Action(ActionType::BuyFoodAtMarket, 7));
+                                std::cout << "Unit " << unit.name << " will buy food at market\n";
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
 
             // Process queued actions - only if there's something to process
             if (!unit.actionQueue.empty() || !unit.path.empty()) {
@@ -124,6 +170,39 @@ void runMainLoop(sdl& app) {
                             app.foodManager->renderFoodSymbol(app.renderer, px, py);
                             idx++;
                         }
+                    }
+                }
+                
+                // Render coin count in top-left corner of house
+                if (s.coins > 0 && app.foodManager) {
+                    int px, py;
+                    app.cellGrid->gridToPixel(s.gridX, s.gridY, px, py);
+                    app.foodManager->renderCoinCount(app.renderer, px, py, s.coins);
+                }
+            }
+        }
+
+        // --- RENDER MARKETS ---
+        if (g_MarketManager) {
+            SDL_SetRenderDrawColor(app.renderer, 0, 128, 255, 255); // Blue for markets
+
+            for (const auto& market : g_MarketManager->markets) {
+                for (int dx = 0; dx < 3; ++dx) {
+                    for (int dy = 0; dy < 3; ++dy) {
+                        int px, py;
+                        app.cellGrid->gridToPixel(market.gridX + dx, market.gridY + dy, px, py);
+                        SDL_Rect rect = { px, py, GRID_SIZE, GRID_SIZE };
+                        SDL_RenderFillRect(app.renderer, &rect);
+                    }
+                }
+                
+                // Render market info (stock and price)
+                if (app.foodManager) {
+                    int px, py;
+                    app.cellGrid->gridToPixel(market.gridX, market.gridY, px, py);
+                    // Show food stock in top-left
+                    if (market.foodStock > 0) {
+                        app.foodManager->renderCoinCount(app.renderer, px, py + 20, market.foodStock);
                     }
                 }
             }

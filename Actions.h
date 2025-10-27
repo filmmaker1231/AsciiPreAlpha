@@ -6,6 +6,8 @@ enum class ActionType {
     Eat,
 	BuildHouse,
 	BringFoodToHouse,
+	SellFoodAtMarket,
+	BuyFoodAtMarket,
     // Add more as needed
 };
 

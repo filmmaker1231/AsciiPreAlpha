@@ -157,8 +157,17 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods) {
 				carryingFoodId = it->foodId;
 				foods.erase(it);
 				std::cout << "Unit " << name << " picked up food " << carryingFoodId << "\n";
-				// Now path to house
+				// Clear path and immediately create path to house
 				path.clear();
+				auto newPath = aStarFindPath(gridX, gridY, houseGridX, houseGridY, cellGrid);
+				if (!newPath.empty()) {
+					path = newPath;
+				} else {
+					// Can't reach house - drop food and give up
+					std::cout << "Unit " << name << " cannot reach house, dropping food " << carryingFoodId << "\n";
+					carryingFoodId = -1;
+					actionQueue.pop();
+				}
 			} else if (path.empty()) {
 				// No food here and no path - give up
 				actionQueue.pop();
@@ -181,7 +190,170 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods) {
 			} else if (path.empty()) {
 				// Need to path to house
 				auto newPath = aStarFindPath(gridX, gridY, houseGridX, houseGridY, cellGrid);
-				if (!newPath.empty()) path = newPath;
+				if (!newPath.empty()) {
+					path = newPath;
+				} else {
+					// Can't reach house - drop food and give up
+					std::cout << "Unit " << name << " cannot reach house, dropping food " << carryingFoodId << "\n";
+					carryingFoodId = -1;
+					actionQueue.pop();
+				}
+			}
+		}
+		break;
+	}
+	case ActionType::SellFoodAtMarket: {
+		int gridX, gridY;
+		cellGrid.pixelToGrid(x, y, gridX, gridY);
+		
+		if (carryingFoodId == -1) {
+			// Phase 1: Get food from house to sell
+			if (isAtHouse(gridX, gridY) && g_HouseManager) {
+				// Try to get food from house
+				for (auto& house : g_HouseManager->houses) {
+					if (house.ownerUnitId == id && !house.foodIds.empty()) {
+						carryingFoodId = house.foodIds.back();
+						house.foodIds.pop_back();
+						std::cout << "Unit " << name << " took food " << carryingFoodId << " from house to sell\n";
+						path.clear();
+						break;
+					}
+				}
+				if (carryingFoodId == -1) {
+					// No food in house to sell
+					std::cout << "Unit " << name << " has no food to sell\n";
+					actionQueue.pop();
+				}
+			} else if (path.empty()) {
+				// Path to house to get food
+				auto newPath = aStarFindPath(gridX, gridY, houseGridX, houseGridY, cellGrid);
+				if (!newPath.empty()) {
+					path = newPath;
+				} else {
+					std::cout << "Unit " << name << " cannot reach house to get food\n";
+					actionQueue.pop();
+				}
+			}
+		} else {
+			// Phase 2: Go to market and sell food
+			if (g_MarketManager) {
+				Market* market = g_MarketManager->getMarketAt(gridX, gridY);
+				if (market) {
+					// At market - sell the food
+					int salePrice = market->foodPrice;
+					market->foodStock++;
+					market->coins -= salePrice;
+					
+					// Add coins to house
+					if (g_HouseManager) {
+						for (auto& house : g_HouseManager->houses) {
+							if (house.ownerUnitId == id) {
+								house.coins += salePrice;
+								std::cout << "Unit " << name << " sold food " << carryingFoodId 
+										  << " for " << salePrice << " coins. House now has " 
+										  << house.coins << " coins\n";
+								break;
+							}
+						}
+					}
+					carryingFoodId = -1;
+					actionQueue.pop();
+				} else if (path.empty()) {
+					// Find nearest market and path to it
+					if (!g_MarketManager->markets.empty()) {
+						int minDist = std::numeric_limits<int>::max();
+						int nearestMarketX = 0, nearestMarketY = 0;
+						
+						for (const auto& m : g_MarketManager->markets) {
+							int dist = abs(m.gridX - gridX) + abs(m.gridY - gridY);
+							if (dist < minDist) {
+								minDist = dist;
+								nearestMarketX = m.gridX;
+								nearestMarketY = m.gridY;
+							}
+						}
+						
+						auto newPath = aStarFindPath(gridX, gridY, nearestMarketX, nearestMarketY, cellGrid);
+						if (!newPath.empty()) {
+							path = newPath;
+						} else {
+							std::cout << "Unit " << name << " cannot reach market\n";
+							carryingFoodId = -1;
+							actionQueue.pop();
+						}
+					}
+				}
+			}
+		}
+		break;
+	}
+	case ActionType::BuyFoodAtMarket: {
+		int gridX, gridY;
+		cellGrid.pixelToGrid(x, y, gridX, gridY);
+		
+		if (g_MarketManager) {
+			Market* market = g_MarketManager->getMarketAt(gridX, gridY);
+			if (market) {
+				// At market - try to buy food
+				if (market->foodStock > 0 && g_HouseManager) {
+					// Check if unit has enough coins
+					for (auto& house : g_HouseManager->houses) {
+						if (house.ownerUnitId == id) {
+							if (house.coins >= market->foodPrice) {
+								// Buy the food
+								static int nextFoodId = 1000; // Use high IDs for bought food
+								int boughtFoodId = nextFoodId++;
+								house.coins -= market->foodPrice;
+								market->foodStock--;
+								market->coins += market->foodPrice;
+								carryingFoodId = boughtFoodId;
+								
+								std::cout << "Unit " << name << " bought food " << boughtFoodId 
+										  << " for " << market->foodPrice << " coins. House now has " 
+										  << house.coins << " coins\n";
+								
+								// Now need to bring food home
+								path.clear();
+								actionQueue.pop();
+								addAction(Action(ActionType::BringFoodToHouse, 9));
+							} else {
+								std::cout << "Unit " << name << " doesn't have enough coins (" 
+										  << house.coins << " < " << market->foodPrice << ")\n";
+								actionQueue.pop();
+							}
+							break;
+						}
+					}
+				} else {
+					std::cout << "Market is out of stock\n";
+					actionQueue.pop();
+				}
+			} else if (path.empty()) {
+				// Find nearest market and path to it
+				if (!g_MarketManager->markets.empty()) {
+					int minDist = std::numeric_limits<int>::max();
+					int nearestMarketX = 0, nearestMarketY = 0;
+					
+					for (const auto& m : g_MarketManager->markets) {
+						int dist = abs(m.gridX - gridX) + abs(m.gridY - gridY);
+						if (dist < minDist) {
+							minDist = dist;
+							nearestMarketX = m.gridX;
+							nearestMarketY = m.gridY;
+						}
+					}
+					
+					auto newPath = aStarFindPath(gridX, gridY, nearestMarketX, nearestMarketY, cellGrid);
+					if (!newPath.empty()) {
+						path = newPath;
+					} else {
+						std::cout << "Unit " << name << " cannot reach market\n";
+						actionQueue.pop();
+					}
+				} else {
+					std::cout << "No markets available\n";
+					actionQueue.pop();
+				}
 			}
 		}
 		break;
