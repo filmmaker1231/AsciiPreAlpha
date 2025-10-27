@@ -1155,7 +1155,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 	case ActionType::BuyAtMarket: {
 		// Buy food from a market stall
 		// 1. If not carrying coin, go to house and pick up coin
-		if (carriedCoinId == -1 && coinInventory.empty()) {
+		if (carriedCoinId == -1) {
 			House* myHouse = nullptr;
 			if (g_HouseManager) {
 				for (auto& house : g_HouseManager->houses) {
@@ -1184,18 +1184,28 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 				break;
 			}
 			
-			// Pick up coin from house (add to inventory, not visual carry)
+			// Pick up coin from house and visually carry it
 			int coinId = myHouse->getFirstCoinId();
 			if (coinId != -1) {
 				myHouse->removeCoinById(coinId);
-				coinInventory.push_back(coinId);
+				carriedCoinId = coinId;
+				// Mark coin as carried and update its position
+				auto coinIt = std::find_if(coins.begin(), coins.end(), [&](const Coin& coin) {
+					return coin.coinId == coinId;
+				});
+				if (coinIt != coins.end()) {
+					coinIt->carriedByUnitId = id;
+					coinIt->ownedByHouseId = -1; // Clear house ownership
+					coinIt->x = x;
+					coinIt->y = y;
+				}
 				std::cout << "Unit " << name << " picked up coin (id " << coinId << ") to buy at market.\n";
 			}
 			break;
 		}
 		
 		// 2. If carrying coin, find a stall with a seller and navigate there
-		if (carriedFoodId == -1) {
+		if (carriedFoodId == -1 && carriedCoinId != -1) {
 			Market* targetMarket = nullptr;
 			int stallX = -1, stallY = -1;
 			
@@ -1233,15 +1243,15 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 			int foodId = targetMarket->stallFoodIds[stallX][stallY];
 			int sellerId = targetMarket->stallSellerIds[stallX][stallY];
 			
-			if (foodId == -1 || sellerId == -1 || coinInventory.empty()) {
+			if (foodId == -1 || sellerId == -1 || carriedCoinId == -1) {
 				// Something went wrong, give up
 				actionQueue.pop();
 				break;
 			}
 			
-			// Transfer coin to seller (GameLoop processes coins with ownedByHouseId set)
-			int coinId = coinInventory.back();
-			coinInventory.pop_back();
+			// Transfer coin to seller (place coin at stall)
+			int coinId = carriedCoinId;
+			carriedCoinId = -1;
 			
 			// Mark the coin with seller's ID so GameLoop can add it to seller's receivedCoins
 			// The coin's ownedByHouseId field is set below to trigger this mechanism
@@ -1317,7 +1327,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 					break;
 				}
 				
-				// At house, store the food
+				// At house, try to store the food
 				House* myHouse = nullptr;
 				if (g_HouseManager) {
 					for (auto& house : g_HouseManager->houses) {
@@ -1350,6 +1360,17 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 							std::cout << "Unit " << name << " stored purchased food at home.\n";
 						}
 					}
+				} else {
+					// House is full or missing - eat the food instead of carrying it forever
+					std::cout << "Unit " << name << " house is full, consuming purchased food instead.\n";
+					hunger = 100;
+					auto it = std::find_if(foods.begin(), foods.end(), [&](const Food& food) {
+						return food.foodId == carriedFoodId;
+					});
+					if (it != foods.end()) {
+						foods.erase(it);
+					}
+					carriedFoodId = -1;
 				}
 				actionQueue.pop();
 			}
