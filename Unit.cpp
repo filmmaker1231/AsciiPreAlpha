@@ -1571,7 +1571,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 			}
 			
 			// At clay, start clamping
-			static Uint32 clampStartTime = 0;
+			
 			if (clampStartTime == 0) {
 				clampStartTime = SDL_GetTicks();
 				std::cout << "Unit " << name << " is shaping clay\n";
@@ -1597,9 +1597,9 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 
 	case ActionType::MakeFire: {
 		// Find two adjacent sticks, path to them, clamp for 2 seconds, create firesticks
-		static int targetStick1Idx = -1;
-		static int targetStick2Idx = -1;
-		static Uint32 fireClampStartTime = 0;
+		
+		
+		
 		
 		if (targetStick1Idx == -1 || targetStick2Idx == -1) {
 			// Find two adjacent sticks
@@ -1716,7 +1716,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 			}
 			
 			// At brick, start clamping
-			static Uint32 brickClampStartTime = 0;
+			
 			if (brickClampStartTime == 0) {
 				brickClampStartTime = SDL_GetTicks();
 				std::cout << "Unit " << name << " is building unfinished kiln from brick\n";
@@ -1822,7 +1822,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 			}
 			
 			// At kiln, clamp for 2 seconds
-			static Uint32 fsClampStartTime = 0;
+			
 			if (fsClampStartTime == 0) {
 				fsClampStartTime = SDL_GetTicks();
 				std::cout << "Unit " << name << " is adding firesticks to kiln\n";
@@ -1933,7 +1933,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 			}
 			
 			// At kiln, clamp for 2 seconds
-			static Uint32 grassClampStartTime = 0;
+			
 			if (grassClampStartTime == 0) {
 				grassClampStartTime = SDL_GetTicks();
 				std::cout << "Unit " << name << " is adding dry grass to kiln\n";
@@ -1999,7 +1999,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 		}
 		
 		// At unfinished kiln, clamp for 2 seconds
-		static Uint32 finishKilnClampStartTime = 0;
+		
 		if (finishKilnClampStartTime == 0) {
 			finishKilnClampStartTime = SDL_GetTicks();
 			std::cout << "Unit " << name << " is finishing kiln construction\n";
@@ -2102,7 +2102,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 			}
 			
 			// At kiln, clamp for 2 seconds
-			static Uint32 piggyBankClampStartTime = 0;
+			
 			if (piggyBankClampStartTime == 0) {
 				piggyBankClampStartTime = SDL_GetTicks();
 				std::cout << "Unit " << name << " is creating piggy bank at kiln\n";
