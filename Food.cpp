@@ -163,3 +163,76 @@ std::vector<Seed>& SeedManager::getSeeds() {
 const std::vector<Seed>& SeedManager::getSeeds() const {
     return seeds;
 }
+
+CoinManager::CoinManager() : font(nullptr) {
+}
+
+CoinManager::~CoinManager() {
+    if (font) {
+        TTF_CloseFont(font);
+    }
+}
+
+bool CoinManager::initializeFont(const char* fontPath, int fontSize) {
+    // Try provided font path first (skip if nullptr or empty)
+    if (fontPath && fontPath[0] != '\0') {
+        font = TTF_OpenFont(fontPath, fontSize);
+        if (font) {
+            return true;
+        }
+    }
+    
+    // Try to load a default system font
+    // On Windows, try Arial
+    font = TTF_OpenFont("C:/Windows/Fonts/arial.ttf", fontSize);
+    if (!font) {
+        // On Linux, try DejaVu Sans
+        font = TTF_OpenFont("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", fontSize);
+        if (!font) {
+            std::cerr << "Failed to load font: " << TTF_GetError() << std::endl;
+            return false;
+        }
+    }
+    return true;
+}
+
+void CoinManager::spawnCoin(int x, int y) {
+    static int nextCoinId = 1; // Static to ensure unique IDs
+    coins.emplace_back(x, y, nextCoinId++);
+    std::cout << "Spawned coin at (" << x << ", " << y << ") with id " << (nextCoinId-1) << std::endl;
+}
+
+void CoinManager::renderCoins(SDL_Renderer* renderer) {
+    if (!font) {
+        return;
+    }
+    
+    SDL_Color color = {255, 215, 0, 255}; // Gold color
+    
+    for (const auto& coinItem : coins) {
+        // Create surface with the coin symbol
+        std::string symbolStr(1, coinItem.symbol);
+        SDL_Surface* surface = TTF_RenderText_Solid(font, symbolStr.c_str(), color);
+        if (!surface) {
+            continue;
+        }
+        
+        // Create texture from surface
+        SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+        if (texture) {
+            SDL_Rect dstRect = {coinItem.x, coinItem.y, surface->w, surface->h};
+            SDL_RenderCopy(renderer, texture, nullptr, &dstRect);
+            SDL_DestroyTexture(texture);
+        }
+        
+        SDL_FreeSurface(surface);
+    }
+}
+
+std::vector<Coin>& CoinManager::getCoins() {
+    return coins;
+}
+
+const std::vector<Coin>& CoinManager::getCoins() const {
+    return coins;
+}

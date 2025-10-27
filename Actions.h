@@ -13,6 +13,9 @@ enum class ActionType {
     HarvestFood,
     StealFood,
     Fight,
+    SellAtMarket,
+    BuyAtMarket,
+    BringCoinToHouse,
     // Add more as needed
 };
 

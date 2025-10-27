@@ -13,6 +13,8 @@ struct House {
 	int foodIds[3][3];
 	// 3x3 grid of seed IDs, -1 means empty
 	int seedIds[3][3];
+	// 3x3 grid of coin IDs, -1 means empty
+	int coinIds[3][3];
 
 	House(int ownerId, int x, int y)
 		: ownerUnitId(ownerId), gridX(x), gridY(y) {
@@ -20,6 +22,7 @@ struct House {
 			for (int j = 0; j < 3; ++j) {
 				foodIds[i][j] = -1;
 				seedIds[i][j] = -1;
+				coinIds[i][j] = -1;
 			}
 	}
 
@@ -27,8 +30,8 @@ struct House {
 	bool addFood(int foodId) {
 		for (int dx = 0; dx < 3; ++dx) {
 			for (int dy = 0; dy < 3; ++dy) {
-				// Check that this slot is empty (no food AND no seed)
-				if (foodIds[dx][dy] == -1 && seedIds[dx][dy] == -1) {
+				// Check that this slot is empty (no food, seed, OR coin)
+				if (foodIds[dx][dy] == -1 && seedIds[dx][dy] == -1 && coinIds[dx][dy] == -1) {
 					foodIds[dx][dy] = foodId;
 					return true;
 				}
@@ -41,8 +44,8 @@ struct House {
 	bool hasSpace() const {
 		for (int dx = 0; dx < 3; ++dx)
 			for (int dy = 0; dy < 3; ++dy)
-				// Empty slot must have both food AND seed as -1
-				if (foodIds[dx][dy] == -1 && seedIds[dx][dy] == -1)
+				// Empty slot must have food, seed, AND coin all as -1
+				if (foodIds[dx][dy] == -1 && seedIds[dx][dy] == -1 && coinIds[dx][dy] == -1)
 					return true;
 		return false;
 	}
@@ -104,8 +107,8 @@ struct House {
 	bool addSeed(int seedId) {
 		for (int dx = 0; dx < 3; ++dx) {
 			for (int dy = 0; dy < 3; ++dy) {
-				// Check that this slot is empty (no food AND no seed)
-				if (foodIds[dx][dy] == -1 && seedIds[dx][dy] == -1) {
+				// Check that this slot is empty (no food, seed, OR coin)
+				if (foodIds[dx][dy] == -1 && seedIds[dx][dy] == -1 && coinIds[dx][dy] == -1) {
 					seedIds[dx][dy] = seedId;
 					return true;
 				}
@@ -137,6 +140,64 @@ struct House {
 			}
 		}
 		return false;
+	}
+
+	// Add coin to house storage
+	bool addCoin(int coinId) {
+		for (int dx = 0; dx < 3; ++dx) {
+			for (int dy = 0; dy < 3; ++dy) {
+				// Check that this slot is empty (no food, seed, OR coin)
+				if (foodIds[dx][dy] == -1 && seedIds[dx][dy] == -1 && coinIds[dx][dy] == -1) {
+					coinIds[dx][dy] = coinId;
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	// Get first coin ID from house storage
+	int getFirstCoinId() const {
+		for (int dx = 0; dx < 3; ++dx) {
+			for (int dy = 0; dy < 3; ++dy) {
+				if (coinIds[dx][dy] != -1) {
+					return coinIds[dx][dy];
+				}
+			}
+		}
+		return -1;
+	}
+
+	// Remove coin from house storage
+	bool removeCoinById(int coinId) {
+		for (int dx = 0; dx < 3; ++dx) {
+			for (int dy = 0; dy < 3; ++dy) {
+				if (coinIds[dx][dy] == coinId) {
+					coinIds[dx][dy] = -1;
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	// Returns true if house has at least one coin item
+	bool hasCoin() const {
+		for (int dx = 0; dx < 3; ++dx)
+			for (int dy = 0; dy < 3; ++dy)
+				if (coinIds[dx][dy] != -1)
+					return true;
+		return false;
+	}
+
+	// Count how many coins are in house
+	int countCoins() const {
+		int count = 0;
+		for (int dx = 0; dx < 3; ++dx)
+			for (int dy = 0; dy < 3; ++dy)
+				if (coinIds[dx][dy] != -1)
+					count++;
+		return count;
 	}
 
 	// Legacy methods for backward compatibility with old string-based system
@@ -245,8 +306,85 @@ public:
     // Add more as needed
 };
 
+struct Market {
+	int gridX, gridY; // Top-left of 3x3 area
+	// 3x3 grid of food IDs being sold at each stall, -1 means empty
+	int stallFoodIds[3][3];
+	// 3x3 grid of seller unit IDs at each stall, -1 means no seller
+	int stallSellerIds[3][3];
+	// 3x3 grid of time when food was left at stall (in SDL ticks), 0 means seller present
+	Uint32 stallAbandonTimes[3][3];
+
+	Market(int x, int y)
+		: gridX(x), gridY(y) {
+		for (int i = 0; i < 3; ++i)
+			for (int j = 0; j < 3; ++j) {
+				stallFoodIds[i][j] = -1;
+				stallSellerIds[i][j] = -1;
+				stallAbandonTimes[i][j] = 0;
+			}
+	}
+
+	// Returns true if there's at least one empty stall
+	bool hasEmptyStall() const {
+		for (int dx = 0; dx < 3; ++dx)
+			for (int dy = 0; dy < 3; ++dy)
+				if (stallFoodIds[dx][dy] == -1)
+					return true;
+		return false;
+	}
+
+	// Returns true if there's at least one stall with a seller
+	bool hasActiveSeller() const {
+		for (int dx = 0; dx < 3; ++dx)
+			for (int dy = 0; dy < 3; ++dy)
+				if (stallSellerIds[dx][dy] != -1)
+					return true;
+		return false;
+	}
+
+	// Find first empty stall (returns true if found, fills outX and outY with local stall coords 0-2)
+	bool findEmptyStall(int& outX, int& outY) const {
+		for (int dx = 0; dx < 3; ++dx) {
+			for (int dy = 0; dy < 3; ++dy) {
+				if (stallFoodIds[dx][dy] == -1) {
+					outX = dx;
+					outY = dy;
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	// Find first stall with an active seller (returns true if found, fills outX and outY with local stall coords 0-2)
+	bool findActiveSellerStall(int& outX, int& outY) const {
+		for (int dx = 0; dx < 3; ++dx) {
+			for (int dy = 0; dy < 3; ++dy) {
+				if (stallSellerIds[dx][dy] != -1 && stallFoodIds[dx][dy] != -1) {
+					outX = dx;
+					outY = dy;
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+};
+
+class MarketManager {
+public:
+    std::vector<Market> markets;
+
+    void addMarket(const Market& m) { markets.push_back(m); }
+    // Add more as needed
+};
+
 // Global house manager instance
 extern HouseManager* g_HouseManager;
 
 // Global farm manager instance
 extern FarmManager* g_FarmManager;
+
+// Global market manager instance
+extern MarketManager* g_MarketManager;

@@ -57,7 +57,7 @@ void Unit::addAction(const Action& action) {
     }
 }
 
-void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vector<Seed>& seeds) {
+void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vector<Seed>& seeds, std::vector<Coin>& coins) {
 
     // First, handle any path movement (works with or without actions)
     // This allows manually-assigned paths (e.g., via P+click) to be followed
@@ -914,6 +914,444 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 		// If stolenFromByUnitId is -1, the fight is over, so remove this action
 		if (stolenFromByUnitId == -1) {
 			actionQueue.pop();
+		}
+		break;
+	}
+	case ActionType::SellAtMarket: {
+		// Sell food at a market stall
+		// 1. If not carrying food, go to house and pick up food
+		if (carriedFoodId == -1) {
+			House* myHouse = nullptr;
+			if (g_HouseManager) {
+				for (auto& house : g_HouseManager->houses) {
+					if (house.ownerUnitId == id &&
+						house.gridX == houseGridX && house.gridY == houseGridY) {
+						myHouse = &house;
+						break;
+					}
+				}
+			}
+			
+			if (!myHouse || !myHouse->hasFood()) {
+				// No house or no food to sell
+				isSelling = false;
+				actionQueue.pop();
+				break;
+			}
+			
+			// Navigate to house
+			int unitGridX, unitGridY;
+			cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+			if (unitGridX != houseGridX || unitGridY != houseGridY) {
+				if (path.empty()) {
+					auto newPath = aStarFindPath(unitGridX, unitGridY, houseGridX, houseGridY, cellGrid);
+					if (!newPath.empty()) path = newPath;
+				}
+				break;
+			}
+			
+			// Pick up food from house
+			int foodId = myHouse->getFirstFoodId();
+			if (foodId != -1) {
+				myHouse->removeFoodById(foodId);
+				carriedFoodId = foodId;
+				// Mark food as carried
+				auto it = std::find_if(foods.begin(), foods.end(), [&](const Food& food) {
+					return food.foodId == foodId;
+				});
+				if (it != foods.end()) {
+					it->carriedByUnitId = id;
+					it->ownedByHouseId = -1; // No longer owned by house
+					it->x = x;
+					it->y = y;
+					std::cout << "Unit " << name << " picked up food (id " << foodId << ") to sell at market.\n";
+				}
+			}
+			break;
+		}
+		
+		// 2. If carrying food but not yet at a stall, find a market and navigate to empty stall
+		if (!isSelling || sellingStallX == -1 || sellingStallY == -1) {
+			Market* targetMarket = nullptr;
+			int stallX = -1, stallY = -1;
+			
+			if (g_MarketManager) {
+				for (auto& market : g_MarketManager->markets) {
+					if (market.findEmptyStall(stallX, stallY)) {
+						targetMarket = &market;
+						break;
+					}
+				}
+			}
+			
+			if (!targetMarket) {
+				// No empty stall available, give up
+				std::cout << "Unit " << name << " couldn't find empty market stall.\n";
+				isSelling = false;
+				actionQueue.pop();
+				break;
+			}
+			
+			// Navigate to the stall
+			int targetGridX = targetMarket->gridX + stallX;
+			int targetGridY = targetMarket->gridY + stallY;
+			int unitGridX, unitGridY;
+			cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+			
+			if (unitGridX != targetGridX || unitGridY != targetGridY) {
+				if (path.empty()) {
+					auto newPath = aStarFindPath(unitGridX, unitGridY, targetGridX, targetGridY, cellGrid);
+					if (!newPath.empty()) path = newPath;
+				}
+				break;
+			}
+			
+			// Arrived at stall, set up shop
+			targetMarket->stallFoodIds[stallX][stallY] = carriedFoodId;
+			targetMarket->stallSellerIds[stallX][stallY] = id;
+			targetMarket->stallAbandonTimes[stallX][stallY] = 0; // Seller is present
+			isSelling = true;
+			sellingStallX = targetGridX;
+			sellingStallY = targetGridY;
+			lastAtStallTime = SDL_GetTicks();
+			
+			// Update food position to stall
+			auto it = std::find_if(foods.begin(), foods.end(), [&](const Food& food) {
+				return food.foodId == carriedFoodId;
+			});
+			if (it != foods.end()) {
+				int px, py;
+				cellGrid.gridToPixel(targetGridX, targetGridY, px, py);
+				it->x = px;
+				it->y = py;
+				it->carriedByUnitId = -1; // Not carried anymore, it's at the stall
+			}
+			carriedFoodId = -1; // Not carrying anymore
+			
+			std::cout << "Unit " << name << " is now selling at market stall (" << targetGridX << ", " << targetGridY << ").\n";
+			break;
+		}
+		
+		// 3. At stall, wait for buyer (this action stays active)
+		// Update last at stall time
+		int unitGridX, unitGridY;
+		cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+		if (unitGridX == sellingStallX && unitGridY == sellingStallY) {
+			lastAtStallTime = SDL_GetTicks();
+		}
+		// Don't pop the action, seller stays here until a higher priority action comes
+		break;
+	}
+	case ActionType::BuyAtMarket: {
+		// Buy food from a market stall
+		// 1. If not carrying coin, go to house and pick up coin
+		if (carriedCoinId == -1 && coinInventory.empty()) {
+			House* myHouse = nullptr;
+			if (g_HouseManager) {
+				for (auto& house : g_HouseManager->houses) {
+					if (house.ownerUnitId == id &&
+						house.gridX == houseGridX && house.gridY == houseGridY) {
+						myHouse = &house;
+						break;
+					}
+				}
+			}
+			
+			if (!myHouse || !myHouse->hasCoin()) {
+				// No house or no coin to buy with
+				actionQueue.pop();
+				break;
+			}
+			
+			// Navigate to house
+			int unitGridX, unitGridY;
+			cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+			if (unitGridX != houseGridX || unitGridY != houseGridY) {
+				if (path.empty()) {
+					auto newPath = aStarFindPath(unitGridX, unitGridY, houseGridX, houseGridY, cellGrid);
+					if (!newPath.empty()) path = newPath;
+				}
+				break;
+			}
+			
+			// Pick up coin from house (add to inventory, not visual carry)
+			int coinId = myHouse->getFirstCoinId();
+			if (coinId != -1) {
+				myHouse->removeCoinById(coinId);
+				coinInventory.push_back(coinId);
+				std::cout << "Unit " << name << " picked up coin (id " << coinId << ") to buy at market.\n";
+			}
+			break;
+		}
+		
+		// 2. If carrying coin, find a stall with a seller and navigate there
+		if (carriedFoodId == -1) {
+			Market* targetMarket = nullptr;
+			int stallX = -1, stallY = -1;
+			
+			if (g_MarketManager) {
+				for (auto& market : g_MarketManager->markets) {
+					if (market.findActiveSellerStall(stallX, stallY)) {
+						targetMarket = &market;
+						break;
+					}
+				}
+			}
+			
+			if (!targetMarket) {
+				// No active seller, give up
+				std::cout << "Unit " << name << " couldn't find active seller at market.\n";
+				actionQueue.pop();
+				break;
+			}
+			
+			// Navigate to the stall
+			int targetGridX = targetMarket->gridX + stallX;
+			int targetGridY = targetMarket->gridY + stallY;
+			int unitGridX, unitGridY;
+			cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+			
+			if (unitGridX != targetGridX || unitGridY != targetGridY) {
+				if (path.empty()) {
+					auto newPath = aStarFindPath(unitGridX, unitGridY, targetGridX, targetGridY, cellGrid);
+					if (!newPath.empty()) path = newPath;
+				}
+				break;
+			}
+			
+			// Arrived at stall, make the transaction
+			int foodId = targetMarket->stallFoodIds[stallX][stallY];
+			int sellerId = targetMarket->stallSellerIds[stallX][stallY];
+			
+			if (foodId == -1 || sellerId == -1 || coinInventory.empty()) {
+				// Something went wrong, give up
+				actionQueue.pop();
+				break;
+			}
+			
+			// Transfer coin to seller (GameLoop processes coins with ownedByHouseId set)
+			int coinId = coinInventory.back();
+			coinInventory.pop_back();
+			
+			// Mark the coin with seller's ID so GameLoop can add it to seller's receivedCoins
+			// The coin's ownedByHouseId field is set below to trigger this mechanism
+			
+			// Pick up the food
+			auto foodIt = std::find_if(foods.begin(), foods.end(), [&](const Food& food) {
+				return food.foodId == foodId;
+			});
+			if (foodIt != foods.end()) {
+				carriedFoodId = foodId;
+				foodIt->carriedByUnitId = id;
+				foodIt->x = x;
+				foodIt->y = y;
+			}
+			
+			// Clear the stall
+			targetMarket->stallFoodIds[stallX][stallY] = -1;
+			// Keep seller ID for GameLoop to find the seller
+			int sellerIdTemp = targetMarket->stallSellerIds[stallX][stallY];
+			targetMarket->stallSellerIds[stallX][stallY] = -1;
+			targetMarket->stallAbandonTimes[stallX][stallY] = 0;
+			
+			// Place coin at stall for GameLoop to handle
+			auto coinIt = std::find_if(coins.begin(), coins.end(), [&](const Coin& coin) {
+				return coin.coinId == coinId;
+			});
+			if (coinIt != coins.end()) {
+				int px, py;
+				cellGrid.gridToPixel(targetGridX, targetGridY, px, py);
+				coinIt->x = px;
+				coinIt->y = py;
+				coinIt->carriedByUnitId = -1;
+				coinIt->ownedByHouseId = sellerIdTemp; // Mark as owned by seller
+			}
+			
+			std::cout << "Unit " << name << " (buyer) and seller (id " << sellerIdTemp << ") have made a deal.\n";
+			
+			// Buyer action depends on hunger
+			// This will be handled next iteration
+			break;
+		}
+		
+		// 3. If carrying food from purchase, consume or bring home
+		if (carriedFoodId != -1) {
+			// Check hunger level
+			if (hunger < 50) {
+				// Consume on the spot
+				int unitGridX, unitGridY;
+				cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+				
+				// Drop seeds before eating
+				std::random_device rd;
+				std::mt19937 gen(rd());
+				std::uniform_int_distribution<> seedDist(1, 100);
+				int numSeeds = (seedDist(gen) <= 15) ? 2 : 1;
+				
+				int pixelX, pixelY;
+				cellGrid.gridToPixel(unitGridX, unitGridY, pixelX, pixelY);
+				
+				for (int i = 0; i < numSeeds; ++i) {
+					Seed newSeed(pixelX, pixelY, "seed", g_nextSeedId++);
+					seeds.push_back(newSeed);
+				}
+				
+				// Eat the food
+				hunger = 100;
+				auto it = std::find_if(foods.begin(), foods.end(), [&](const Food& food) {
+					return food.foodId == carriedFoodId;
+				});
+				if (it != foods.end()) {
+					foods.erase(it);
+				}
+				carriedFoodId = -1;
+				std::cout << "Unit " << name << " consumed purchased food on the spot.\n";
+				actionQueue.pop();
+			} else {
+				// Bring food to house
+				int unitGridX, unitGridY;
+				cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+				if (unitGridX != houseGridX || unitGridY != houseGridY) {
+					if (path.empty()) {
+						auto newPath = aStarFindPath(unitGridX, unitGridY, houseGridX, houseGridY, cellGrid);
+						if (!newPath.empty()) path = newPath;
+					}
+					break;
+				}
+				
+				// At house, store the food
+				House* myHouse = nullptr;
+				if (g_HouseManager) {
+					for (auto& house : g_HouseManager->houses) {
+						if (house.ownerUnitId == id &&
+							house.gridX == houseGridX && house.gridY == houseGridY) {
+							myHouse = &house;
+							break;
+						}
+					}
+				}
+				
+				if (myHouse && myHouse->hasSpace()) {
+					auto it = std::find_if(foods.begin(), foods.end(), [&](const Food& food) {
+						return food.foodId == carriedFoodId;
+					});
+					if (it != foods.end()) {
+						if (myHouse->addFood(carriedFoodId)) {
+							it->carriedByUnitId = -1;
+							it->ownedByHouseId = id;
+							// Position food in house
+							for (int dx = 0; dx < 3; ++dx) {
+								for (int dy = 0; dy < 3; ++dy) {
+									if (myHouse->foodIds[dx][dy] == carriedFoodId) {
+										cellGrid.gridToPixel(houseGridX + dx, houseGridY + dy, it->x, it->y);
+										break;
+									}
+								}
+							}
+							carriedFoodId = -1;
+							std::cout << "Unit " << name << " stored purchased food at home.\n";
+						}
+					}
+				}
+				actionQueue.pop();
+			}
+		}
+		break;
+	}
+	case ActionType::BringCoinToHouse: {
+		// Bring coin from stall to house after selling
+		// 1. If not carrying coin, navigate to coin location and pick it up
+		if (carriedCoinId == -1 && !receivedCoins.empty()) {
+			// Find a coin that's owned by this seller
+			int coinId = receivedCoins.front();
+			auto coinIt = std::find_if(coins.begin(), coins.end(), [&](const Coin& coin) {
+				return coin.coinId == coinId && coin.ownedByHouseId == id;
+			});
+			
+			if (coinIt == coins.end()) {
+				// Coin not found or already picked up
+				receivedCoins.erase(receivedCoins.begin());
+				if (receivedCoins.empty()) {
+					actionQueue.pop();
+				}
+				break;
+			}
+			
+			// Navigate to coin
+			int coinGridX, coinGridY;
+			cellGrid.pixelToGrid(coinIt->x, coinIt->y, coinGridX, coinGridY);
+			int unitGridX, unitGridY;
+			cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+			
+			if (unitGridX != coinGridX || unitGridY != coinGridY) {
+				if (path.empty()) {
+					auto newPath = aStarFindPath(unitGridX, unitGridY, coinGridX, coinGridY, cellGrid);
+					if (!newPath.empty()) path = newPath;
+				}
+				break;
+			}
+			
+			// Pick up the coin
+			carriedCoinId = coinId;
+			coinIt->carriedByUnitId = id;
+			coinIt->x = x;
+			coinIt->y = y;
+			receivedCoins.erase(receivedCoins.begin());
+			std::cout << "Unit " << name << " picked up coin (id " << coinId << ") from sale to bring home.\n";
+			break;
+		}
+		
+		// 2. If carrying coin, navigate to house
+		if (carriedCoinId != -1) {
+			int unitGridX, unitGridY;
+			cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+			if (unitGridX != houseGridX || unitGridY != houseGridY) {
+				if (path.empty()) {
+					auto newPath = aStarFindPath(unitGridX, unitGridY, houseGridX, houseGridY, cellGrid);
+					if (!newPath.empty()) path = newPath;
+				}
+				break;
+			}
+			
+			// At house, store the coin
+			House* myHouse = nullptr;
+			if (g_HouseManager) {
+				for (auto& house : g_HouseManager->houses) {
+					if (house.ownerUnitId == id &&
+						house.gridX == houseGridX && house.gridY == houseGridY) {
+						myHouse = &house;
+						break;
+					}
+				}
+			}
+			
+			if (myHouse && myHouse->hasSpace()) {
+				auto coinIt = std::find_if(coins.begin(), coins.end(), [&](const Coin& coin) {
+					return coin.coinId == carriedCoinId;
+				});
+				if (coinIt != coins.end()) {
+					if (myHouse->addCoin(carriedCoinId)) {
+						coinIt->carriedByUnitId = -1;
+						coinIt->ownedByHouseId = id;
+						// Position coin in house
+						for (int dx = 0; dx < 3; ++dx) {
+							for (int dy = 0; dy < 3; ++dy) {
+								if (myHouse->coinIds[dx][dy] == carriedCoinId) {
+									cellGrid.gridToPixel(houseGridX + dx, houseGridY + dy, coinIt->x, coinIt->y);
+									break;
+								}
+							}
+						}
+						carriedCoinId = -1;
+						std::cout << "Unit " << name << " stored coin at home.\n";
+					}
+				}
+			}
+			
+			// Check if there are more coins to bring
+			if (receivedCoins.empty()) {
+				actionQueue.pop();
+			}
 		}
 		break;
 	}
