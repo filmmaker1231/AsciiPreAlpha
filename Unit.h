@@ -21,6 +21,11 @@ public:
 	int carriedFoodId = -1; // ID of food being carried, -1 if none
 	int carriedSeedId = -1; // ID of seed being carried, -1 if none
 	int carriedCoinId = -1; // ID of coin being carried, -1 if none
+	int carriedFiresticksId = -1; // ID of firesticks being carried, -1 if none
+	int carriedClayId = -1; // ID of clay being carried, -1 if none
+	int carriedBrickId = -1; // ID of brick being carried, -1 if none
+	int carriedDryGrassId = -1; // ID of dry grass being carried, -1 if none
+	int carriedPiggyBankId = -1; // ID of piggy bank being carried, -1 if none
 	std::vector<int> coinInventory; // IDs of coins in unit's inventory
 	std::vector<int> receivedCoins; // IDs of coins received from sales (to be picked up)
 	Uint32 lastHungerUpdate = 0;
@@ -42,12 +47,28 @@ public:
 	Uint32 lastAtStallTime = 0; // Last time unit was at their stall
 	int justSoldToUnitId = -1; // ID of buyer unit who just bought from this seller (for coin transfer)
 	int coinToReceive = -1; // Coin ID to receive from last sale
+	
+	// Clamp timers for crafting actions
+	Uint32 clampStartTime = 0; // For ShapeClay action
+	Uint32 fireClampStartTime = 0; // For MakeFire action
+	Uint32 brickClampStartTime = 0; // For BuildUnfinishedKiln action
+	Uint32 fsClampStartTime = 0; // For BringFiresticksToKiln action
+	Uint32 grassClampStartTime = 0; // For BringDryGrassToKiln action
+	Uint32 finishKilnClampStartTime = 0; // For FinishKiln action
+	Uint32 piggyBankClampStartTime = 0; // For MakePiggyBank action
+	
+	// Target tracking for MakeFire action
+	int targetStick1Idx = -1;
+	int targetStick2Idx = -1;
 
 	std::vector<std::pair<int, int>> path;
 	std::priority_queue<Action, std::vector<Action>, ActionComparator> actionQueue;
 
 	  void addAction(const Action& action);
-	  void processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vector<Seed>& seeds, std::vector<Coin>& coins);
+	  void processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vector<Seed>& seeds, std::vector<Coin>& coins,
+	                     std::vector<Stick>& sticks, std::vector<Firesticks>& firesticks, std::vector<Clay>& clays,
+	                     std::vector<ShapedClay>& shapedClays, std::vector<Brick>& bricks, std::vector<DryGrass>& dryGrasses,
+	                     std::vector<PiggyBank>& piggyBanks, std::vector<UnfinishedKiln>& unfinishedKilns, std::vector<Kiln>& kilns);
 	  void tryFindAndPathToFood(CellGrid& cellGrid, std::vector<Food>& foods);
 	  void bringItemToHouse(const std::string& itemType) {
 		  addAction(Action(ActionType::BringItemToHouse, 5, itemType));

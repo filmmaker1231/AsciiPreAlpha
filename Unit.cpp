@@ -57,7 +57,10 @@ void Unit::addAction(const Action& action) {
     }
 }
 
-void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vector<Seed>& seeds, std::vector<Coin>& coins) {
+void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vector<Seed>& seeds, std::vector<Coin>& coins,
+                         std::vector<Stick>& sticks, std::vector<Firesticks>& firesticks, std::vector<Clay>& clays,
+                         std::vector<ShapedClay>& shapedClays, std::vector<Brick>& bricks, std::vector<DryGrass>& dryGrasses,
+                         std::vector<PiggyBank>& piggyBanks, std::vector<UnfinishedKiln>& unfinishedKilns, std::vector<Kiln>& kilns) {
 
     // First, handle any path movement (works with or without actions)
     // This allows manually-assigned paths (e.g., via P+click) to be followed
@@ -99,6 +102,46 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
                     return coin.coinId == carriedCoinId;
                 });
                 if (it != coins.end()) {
+                    it->x = x;
+                    it->y = y;
+                }
+            }
+            
+            if (carriedFiresticksId != -1) {
+                auto it = std::find_if(firesticks.begin(), firesticks.end(), [&](const Firesticks& fs) {
+                    return fs.firesticksId == carriedFiresticksId;
+                });
+                if (it != firesticks.end()) {
+                    it->x = x;
+                    it->y = y;
+                }
+            }
+            
+            if (carriedClayId != -1) {
+                auto it = std::find_if(clays.begin(), clays.end(), [&](const Clay& clay) {
+                    return clay.clayId == carriedClayId;
+                });
+                if (it != clays.end()) {
+                    it->x = x;
+                    it->y = y;
+                }
+            }
+            
+            if (carriedDryGrassId != -1) {
+                auto it = std::find_if(dryGrasses.begin(), dryGrasses.end(), [&](const DryGrass& grass) {
+                    return grass.dryGrassId == carriedDryGrassId;
+                });
+                if (it != dryGrasses.end()) {
+                    it->x = x;
+                    it->y = y;
+                }
+            }
+            
+            if (carriedPiggyBankId != -1) {
+                auto it = std::find_if(piggyBanks.begin(), piggyBanks.end(), [&](const PiggyBank& pb) {
+                    return pb.piggyBankId == carriedPiggyBankId;
+                });
+                if (it != piggyBanks.end()) {
                     it->x = x;
                     it->y = y;
                 }
@@ -1484,6 +1527,684 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 			if (receivedCoins.empty() && carriedCoinId == -1) {
 				actionQueue.pop();
 			}
+		}
+		break;
+	}
+
+	case ActionType::ShapeClay: {
+		// Shape clay: find nearest clay, path to it, clamp for 2 seconds, transform to shaped clay
+		if (carriedClayId == -1) {
+			// Find nearest uncarried clay
+			int unitGridX, unitGridY;
+			cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+			
+			int minDist = std::numeric_limits<int>::max();
+			int closestIdx = -1;
+			int clayGridX = -1, clayGridY = -1;
+			
+			for (size_t i = 0; i < clays.size(); ++i) {
+				if (clays[i].carriedByUnitId != -1) continue;
+				
+				int cx, cy;
+				cellGrid.pixelToGrid(clays[i].x, clays[i].y, cx, cy);
+				int dist = abs(cx - unitGridX) + abs(cy - unitGridY);
+				if (dist < minDist) {
+					minDist = dist;
+					closestIdx = static_cast<int>(i);
+					clayGridX = cx;
+					clayGridY = cy;
+				}
+			}
+			
+			if (closestIdx == -1) {
+				actionQueue.pop();
+				break;
+			}
+			
+			// Path to clay
+			if (unitGridX != clayGridX || unitGridY != clayGridY) {
+				if (path.empty()) {
+					auto newPath = aStarFindPath(unitGridX, unitGridY, clayGridX, clayGridY, cellGrid);
+					if (!newPath.empty()) path = newPath;
+				}
+				break;
+			}
+			
+			// At clay, start clamping
+			
+			if (clampStartTime == 0) {
+				clampStartTime = SDL_GetTicks();
+				std::cout << "Unit " << name << " is shaping clay\n";
+			}
+			
+			Uint32 now = SDL_GetTicks();
+			if (now - clampStartTime >= 2000) {
+				// 2 seconds passed, transform clay to shaped clay
+				int clayX = clays[closestIdx].x;
+				int clayY = clays[closestIdx].y;
+				int clayId = clays[closestIdx].clayId;
+				
+				clays.erase(clays.begin() + closestIdx);
+				shapedClays.emplace_back(clayX, clayY, clayId, now);
+				
+				std::cout << "Unit " << name << " shaped clay into shaped clay (id " << clayId << ")\n";
+				clampStartTime = 0;
+				actionQueue.pop();
+			}
+		}
+		break;
+	}
+
+	case ActionType::MakeFire: {
+		// Find two adjacent sticks, path to them, clamp for 2 seconds, create firesticks
+		if (targetStick1Idx == -1 || targetStick2Idx == -1) {
+			// Find two adjacent sticks
+			for (size_t i = 0; i < sticks.size(); ++i) {
+				int s1GridX, s1GridY;
+				cellGrid.pixelToGrid(sticks[i].x, sticks[i].y, s1GridX, s1GridY);
+				
+				for (size_t j = i + 1; j < sticks.size(); ++j) {
+					int s2GridX, s2GridY;
+					cellGrid.pixelToGrid(sticks[j].x, sticks[j].y, s2GridX, s2GridY);
+					
+					// Check if adjacent (horizontally or vertically)
+					if ((abs(s1GridX - s2GridX) == 1 && s1GridY == s2GridY) ||
+					    (abs(s1GridY - s2GridY) == 1 && s1GridX == s2GridX)) {
+						targetStick1Idx = i;
+						targetStick2Idx = j;
+						break;
+					}
+				}
+				if (targetStick1Idx != -1) break;
+			}
+			
+			if (targetStick1Idx == -1) {
+				// No adjacent sticks found
+				actionQueue.pop();
+				break;
+			}
+		}
+		
+		// Path to first stick location
+		int unitGridX, unitGridY;
+		cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+		int stick1GridX, stick1GridY;
+		cellGrid.pixelToGrid(sticks[targetStick1Idx].x, sticks[targetStick1Idx].y, stick1GridX, stick1GridY);
+		
+		if (unitGridX != stick1GridX || unitGridY != stick1GridY) {
+			if (path.empty()) {
+				auto newPath = aStarFindPath(unitGridX, unitGridY, stick1GridX, stick1GridY, cellGrid);
+				if (!newPath.empty()) path = newPath;
+			}
+			break;
+		}
+		
+		// At sticks, start clamping
+		if (fireClampStartTime == 0) {
+			fireClampStartTime = SDL_GetTicks();
+			std::cout << "Unit " << name << " is rubbing sticks to make a fire\n";
+		}
+		
+		Uint32 now = SDL_GetTicks();
+		if (now - fireClampStartTime >= 2000) {
+			// 2 seconds passed, create firesticks at first stick location
+			int firestickX = sticks[targetStick1Idx].x;
+			int firestickY = sticks[targetStick1Idx].y;
+			
+			// Remove both sticks (remove higher index first to avoid invalidation)
+			if (targetStick2Idx > targetStick1Idx) {
+				sticks.erase(sticks.begin() + targetStick2Idx);
+				sticks.erase(sticks.begin() + targetStick1Idx);
+			} else {
+				sticks.erase(sticks.begin() + targetStick1Idx);
+				sticks.erase(sticks.begin() + targetStick2Idx);
+			}
+			
+			// Create firesticks
+			firesticks.emplace_back(firestickX, firestickY, firesticks.size() + 1);
+			
+			std::cout << "Unit " << name << " created firesticks by rubbing two sticks together\n";
+			fireClampStartTime = 0;
+			targetStick1Idx = -1;
+			targetStick2Idx = -1;
+			actionQueue.pop();
+		}
+		break;
+	}
+
+	case ActionType::BuildUnfinishedKiln: {
+		// Find nearest brick, path to it, clamp for 2 seconds, turn brick into unfinished kiln
+		if (carriedBrickId == -1) {
+			// Find nearest brick
+			int unitGridX, unitGridY;
+			cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+			
+			int minDist = std::numeric_limits<int>::max();
+			int closestIdx = -1;
+			int brickGridX = -1, brickGridY = -1;
+			
+			for (size_t i = 0; i < bricks.size(); ++i) {
+				if (bricks[i].carriedByUnitId != -1) continue;
+				
+				int bx, by;
+				cellGrid.pixelToGrid(bricks[i].x, bricks[i].y, bx, by);
+				int dist = abs(bx - unitGridX) + abs(by - unitGridY);
+				if (dist < minDist) {
+					minDist = dist;
+					closestIdx = static_cast<int>(i);
+					brickGridX = bx;
+					brickGridY = by;
+				}
+			}
+			
+			if (closestIdx == -1) {
+				actionQueue.pop();
+				break;
+			}
+			
+			// Path to brick
+			if (unitGridX != brickGridX || unitGridY != brickGridY) {
+				if (path.empty()) {
+					auto newPath = aStarFindPath(unitGridX, unitGridY, brickGridX, brickGridY, cellGrid);
+					if (!newPath.empty()) path = newPath;
+				}
+				break;
+			}
+			
+			// At brick, start clamping
+			
+			if (brickClampStartTime == 0) {
+				brickClampStartTime = SDL_GetTicks();
+				std::cout << "Unit " << name << " is building unfinished kiln from brick\n";
+			}
+			
+			Uint32 now = SDL_GetTicks();
+			if (now - brickClampStartTime >= 2000) {
+				// 2 seconds passed, transform brick to unfinished kiln
+				int brickX = bricks[closestIdx].x;
+				int brickY = bricks[closestIdx].y;
+				
+				bricks.erase(bricks.begin() + closestIdx);
+				unfinishedKilns.emplace_back(brickX, brickY, unfinishedKilns.size() + 1);
+				
+				std::cout << "Unit " << name << " created unfinished kiln\n";
+				brickClampStartTime = 0;
+				actionQueue.pop();
+			}
+		}
+		break;
+	}
+
+	case ActionType::BringFiresticksToKiln: {
+		// Pick up firesticks, bring to unfinished kiln, clamp for 2 seconds
+		if (carriedFiresticksId == -1) {
+			// Find nearest firesticks
+			int unitGridX, unitGridY;
+			cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+			
+			int minDist = std::numeric_limits<int>::max();
+			int closestIdx = -1;
+			int fsGridX = -1, fsGridY = -1;
+			
+			for (size_t i = 0; i < firesticks.size(); ++i) {
+				if (firesticks[i].carriedByUnitId != -1) continue;
+				
+				int fx, fy;
+				cellGrid.pixelToGrid(firesticks[i].x, firesticks[i].y, fx, fy);
+				int dist = abs(fx - unitGridX) + abs(fy - unitGridY);
+				if (dist < minDist) {
+					minDist = dist;
+					closestIdx = static_cast<int>(i);
+					fsGridX = fx;
+					fsGridY = fy;
+				}
+			}
+			
+			if (closestIdx == -1) {
+				actionQueue.pop();
+				break;
+			}
+			
+			// Path to firesticks
+			if (unitGridX != fsGridX || unitGridY != fsGridY) {
+				if (path.empty()) {
+					auto newPath = aStarFindPath(unitGridX, unitGridY, fsGridX, fsGridY, cellGrid);
+					if (!newPath.empty()) path = newPath;
+				}
+				break;
+			}
+			
+			// Pick up firesticks
+			carriedFiresticksId = firesticks[closestIdx].firesticksId;
+			firesticks[closestIdx].carriedByUnitId = id;
+			firesticks[closestIdx].x = x;
+			firesticks[closestIdx].y = y;
+			std::cout << "Unit " << name << " picked up firesticks\n";
+		} else {
+			// Find nearest unfinished kiln
+			int unitGridX, unitGridY;
+			cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+			
+			int minDist = std::numeric_limits<int>::max();
+			int closestIdx = -1;
+			int kilnGridX = -1, kilnGridY = -1;
+			
+			for (size_t i = 0; i < unfinishedKilns.size(); ++i) {
+				if (unfinishedKilns[i].hasFiresticks) continue;
+				
+				int kx, ky;
+				cellGrid.pixelToGrid(unfinishedKilns[i].x, unfinishedKilns[i].y, kx, ky);
+				int dist = abs(kx - unitGridX) + abs(ky - unitGridY);
+				if (dist < minDist) {
+					minDist = dist;
+					closestIdx = static_cast<int>(i);
+					kilnGridX = kx;
+					kilnGridY = ky;
+				}
+			}
+			
+			if (closestIdx == -1) {
+				actionQueue.pop();
+				break;
+			}
+			
+			// Path to kiln
+			if (unitGridX != kilnGridX || unitGridY != kilnGridY) {
+				if (path.empty()) {
+					auto newPath = aStarFindPath(unitGridX, unitGridY, kilnGridX, kilnGridY, cellGrid);
+					if (!newPath.empty()) path = newPath;
+				}
+				break;
+			}
+			
+			// At kiln, clamp for 2 seconds
+			
+			if (fsClampStartTime == 0) {
+				fsClampStartTime = SDL_GetTicks();
+				std::cout << "Unit " << name << " is adding firesticks to kiln\n";
+			}
+			
+			Uint32 now = SDL_GetTicks();
+			if (now - fsClampStartTime >= 2000) {
+				// Mark kiln as having firesticks and delete firesticks
+				unfinishedKilns[closestIdx].hasFiresticks = true;
+				
+				// Remove firesticks from world
+				for (auto it = firesticks.begin(); it != firesticks.end(); ++it) {
+					if (it->firesticksId == carriedFiresticksId) {
+						firesticks.erase(it);
+						break;
+					}
+				}
+				
+				carriedFiresticksId = -1;
+				std::cout << "Unit " << name << " added firesticks to unfinished kiln\n";
+				fsClampStartTime = 0;
+				actionQueue.pop();
+			}
+		}
+		break;
+	}
+
+	case ActionType::BringDryGrassToKiln: {
+		// Similar to firesticks: pick up dry grass, bring to unfinished kiln, clamp for 2 seconds
+		if (carriedDryGrassId == -1) {
+			// Find nearest dry grass
+			int unitGridX, unitGridY;
+			cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+			
+			int minDist = std::numeric_limits<int>::max();
+			int closestIdx = -1;
+			int grassGridX = -1, grassGridY = -1;
+			
+			for (size_t i = 0; i < dryGrasses.size(); ++i) {
+				if (dryGrasses[i].carriedByUnitId != -1) continue;
+				
+				int gx, gy;
+				cellGrid.pixelToGrid(dryGrasses[i].x, dryGrasses[i].y, gx, gy);
+				int dist = abs(gx - unitGridX) + abs(gy - unitGridY);
+				if (dist < minDist) {
+					minDist = dist;
+					closestIdx = static_cast<int>(i);
+					grassGridX = gx;
+					grassGridY = gy;
+				}
+			}
+			
+			if (closestIdx == -1) {
+				actionQueue.pop();
+				break;
+			}
+			
+			// Path to dry grass
+			if (unitGridX != grassGridX || unitGridY != grassGridY) {
+				if (path.empty()) {
+					auto newPath = aStarFindPath(unitGridX, unitGridY, grassGridX, grassGridY, cellGrid);
+					if (!newPath.empty()) path = newPath;
+				}
+				break;
+			}
+			
+			// Pick up dry grass
+			carriedDryGrassId = dryGrasses[closestIdx].dryGrassId;
+			dryGrasses[closestIdx].carriedByUnitId = id;
+			dryGrasses[closestIdx].x = x;
+			dryGrasses[closestIdx].y = y;
+			std::cout << "Unit " << name << " picked up dry grass\n";
+		} else {
+			// Find nearest unfinished kiln with firesticks but no dry grass
+			int unitGridX, unitGridY;
+			cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+			
+			int minDist = std::numeric_limits<int>::max();
+			int closestIdx = -1;
+			int kilnGridX = -1, kilnGridY = -1;
+			
+			for (size_t i = 0; i < unfinishedKilns.size(); ++i) {
+				if (!unfinishedKilns[i].hasFiresticks || unfinishedKilns[i].hasDryGrass) continue;
+				
+				int kx, ky;
+				cellGrid.pixelToGrid(unfinishedKilns[i].x, unfinishedKilns[i].y, kx, ky);
+				int dist = abs(kx - unitGridX) + abs(ky - unitGridY);
+				if (dist < minDist) {
+					minDist = dist;
+					closestIdx = static_cast<int>(i);
+					kilnGridX = kx;
+					kilnGridY = ky;
+				}
+			}
+			
+			if (closestIdx == -1) {
+				actionQueue.pop();
+				break;
+			}
+			
+			// Path to kiln
+			if (unitGridX != kilnGridX || unitGridY != kilnGridY) {
+				if (path.empty()) {
+					auto newPath = aStarFindPath(unitGridX, unitGridY, kilnGridX, kilnGridY, cellGrid);
+					if (!newPath.empty()) path = newPath;
+				}
+				break;
+			}
+			
+			// At kiln, clamp for 2 seconds
+			
+			if (grassClampStartTime == 0) {
+				grassClampStartTime = SDL_GetTicks();
+				std::cout << "Unit " << name << " is adding dry grass to kiln\n";
+			}
+			
+			Uint32 now = SDL_GetTicks();
+			if (now - grassClampStartTime >= 2000) {
+				// Mark kiln as having dry grass and delete grass
+				unfinishedKilns[closestIdx].hasDryGrass = true;
+				
+				// Remove dry grass from world
+				for (auto it = dryGrasses.begin(); it != dryGrasses.end(); ++it) {
+					if (it->dryGrassId == carriedDryGrassId) {
+						dryGrasses.erase(it);
+						break;
+					}
+				}
+				
+				carriedDryGrassId = -1;
+				std::cout << "Unit " << name << " added dry grass to unfinished kiln\n";
+				grassClampStartTime = 0;
+				actionQueue.pop();
+			}
+		}
+		break;
+	}
+
+	case ActionType::FinishKiln: {
+		// Find unfinished kiln with both firesticks and dry grass, clamp for 2 seconds, turn into kiln
+		int unitGridX, unitGridY;
+		cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+		
+		int minDist = std::numeric_limits<int>::max();
+		int closestIdx = -1;
+		int kilnGridX = -1, kilnGridY = -1;
+		
+		for (size_t i = 0; i < unfinishedKilns.size(); ++i) {
+			if (!unfinishedKilns[i].hasFiresticks || !unfinishedKilns[i].hasDryGrass) continue;
+			
+			int kx, ky;
+			cellGrid.pixelToGrid(unfinishedKilns[i].x, unfinishedKilns[i].y, kx, ky);
+			int dist = abs(kx - unitGridX) + abs(ky - unitGridY);
+			if (dist < minDist) {
+				minDist = dist;
+				closestIdx = static_cast<int>(i);
+				kilnGridX = kx;
+				kilnGridY = ky;
+			}
+		}
+		
+		if (closestIdx == -1) {
+			actionQueue.pop();
+			break;
+		}
+		
+		// Path to kiln
+		if (unitGridX != kilnGridX || unitGridY != kilnGridY) {
+			if (path.empty()) {
+				auto newPath = aStarFindPath(unitGridX, unitGridY, kilnGridX, kilnGridY, cellGrid);
+				if (!newPath.empty()) path = newPath;
+			}
+			break;
+		}
+		
+		// At unfinished kiln, clamp for 2 seconds
+		
+		if (finishKilnClampStartTime == 0) {
+			finishKilnClampStartTime = SDL_GetTicks();
+			std::cout << "Unit " << name << " is finishing kiln construction\n";
+		}
+		
+		Uint32 now = SDL_GetTicks();
+		if (now - finishKilnClampStartTime >= 2000) {
+			// Transform unfinished kiln to kiln
+			int kilnX = unfinishedKilns[closestIdx].x;
+			int kilnY = unfinishedKilns[closestIdx].y;
+			
+			unfinishedKilns.erase(unfinishedKilns.begin() + closestIdx);
+			kilns.emplace_back(kilnX, kilnY, kilns.size() + 1);
+			
+			std::cout << "Unit " << name << " completed kiln construction!\n";
+			finishKilnClampStartTime = 0;
+			actionQueue.pop();
+		}
+		break;
+	}
+
+	case ActionType::MakePiggyBank: {
+		// Find clay, bring to kiln, clamp for 2 seconds, create piggy bank
+		if (carriedClayId == -1) {
+			// Find nearest clay
+			int unitGridX, unitGridY;
+			cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+			
+			int minDist = std::numeric_limits<int>::max();
+			int closestIdx = -1;
+			int clayGridX = -1, clayGridY = -1;
+			
+			for (size_t i = 0; i < clays.size(); ++i) {
+				if (clays[i].carriedByUnitId != -1) continue;
+				
+				int cx, cy;
+				cellGrid.pixelToGrid(clays[i].x, clays[i].y, cx, cy);
+				int dist = abs(cx - unitGridX) + abs(cy - unitGridY);
+				if (dist < minDist) {
+					minDist = dist;
+					closestIdx = static_cast<int>(i);
+					clayGridX = cx;
+					clayGridY = cy;
+				}
+			}
+			
+			if (closestIdx == -1) {
+				actionQueue.pop();
+				break;
+			}
+			
+			// Path to clay
+			if (unitGridX != clayGridX || unitGridY != clayGridY) {
+				if (path.empty()) {
+					auto newPath = aStarFindPath(unitGridX, unitGridY, clayGridX, clayGridY, cellGrid);
+					if (!newPath.empty()) path = newPath;
+				}
+				break;
+			}
+			
+			// Pick up clay
+			carriedClayId = clays[closestIdx].clayId;
+			clays[closestIdx].carriedByUnitId = id;
+			clays[closestIdx].x = x;
+			clays[closestIdx].y = y;
+			std::cout << "Unit " << name << " picked up clay to make piggy bank\n";
+		} else {
+			// Find nearest kiln
+			int unitGridX, unitGridY;
+			cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+			
+			int minDist = std::numeric_limits<int>::max();
+			int closestIdx = -1;
+			int kilnGridX = -1, kilnGridY = -1;
+			
+			for (size_t i = 0; i < kilns.size(); ++i) {
+				int kx, ky;
+				cellGrid.pixelToGrid(kilns[i].x, kilns[i].y, kx, ky);
+				int dist = abs(kx - unitGridX) + abs(ky - unitGridY);
+				if (dist < minDist) {
+					minDist = dist;
+					closestIdx = static_cast<int>(i);
+					kilnGridX = kx;
+					kilnGridY = ky;
+				}
+			}
+			
+			if (closestIdx == -1) {
+				actionQueue.pop();
+				break;
+			}
+			
+			// Path to kiln
+			if (unitGridX != kilnGridX || unitGridY != kilnGridY) {
+				if (path.empty()) {
+					auto newPath = aStarFindPath(unitGridX, unitGridY, kilnGridX, kilnGridY, cellGrid);
+					if (!newPath.empty()) path = newPath;
+				}
+				break;
+			}
+			
+			// At kiln, clamp for 2 seconds
+			
+			if (piggyBankClampStartTime == 0) {
+				piggyBankClampStartTime = SDL_GetTicks();
+				std::cout << "Unit " << name << " is creating piggy bank at kiln\n";
+			}
+			
+			Uint32 now = SDL_GetTicks();
+			if (now - piggyBankClampStartTime >= 2000) {
+				// Transform clay to piggy bank
+				// Remove clay from world
+				for (auto it = clays.begin(); it != clays.end(); ++it) {
+					if (it->clayId == carriedClayId) {
+						clays.erase(it);
+						break;
+					}
+				}
+				
+				// Create piggy bank at kiln location
+				piggyBanks.emplace_back(kilns[closestIdx].x, kilns[closestIdx].y, piggyBanks.size() + 1);
+				
+				// Pick up the new piggy bank
+				carriedPiggyBankId = piggyBanks.back().piggyBankId;
+				piggyBanks.back().carriedByUnitId = id;
+				piggyBanks.back().x = x;
+				piggyBanks.back().y = y;
+				
+				carriedClayId = -1;
+				std::cout << "Unit " << name << " created piggy bank and picked it up\n";
+				piggyBankClampStartTime = 0;
+				actionQueue.pop();
+			}
+		}
+		break;
+	}
+
+	case ActionType::BringPiggyBankHome: {
+		// Bring piggy bank home (similar to bringing food home)
+		if (carriedPiggyBankId == -1) {
+			// Find nearest piggy bank
+			int unitGridX, unitGridY;
+			cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+			
+			int minDist = std::numeric_limits<int>::max();
+			int closestIdx = -1;
+			int pbGridX = -1, pbGridY = -1;
+			
+			for (size_t i = 0; i < piggyBanks.size(); ++i) {
+				if (piggyBanks[i].carriedByUnitId != -1 || piggyBanks[i].ownedByHouseId != -1) continue;
+				
+				int px, py;
+				cellGrid.pixelToGrid(piggyBanks[i].x, piggyBanks[i].y, px, py);
+				int dist = abs(px - unitGridX) + abs(py - unitGridY);
+				if (dist < minDist) {
+					minDist = dist;
+					closestIdx = static_cast<int>(i);
+					pbGridX = px;
+					pbGridY = py;
+				}
+			}
+			
+			if (closestIdx == -1) {
+				actionQueue.pop();
+				break;
+			}
+			
+			// Path to piggy bank
+			if (unitGridX != pbGridX || unitGridY != pbGridY) {
+				if (path.empty()) {
+					auto newPath = aStarFindPath(unitGridX, unitGridY, pbGridX, pbGridY, cellGrid);
+					if (!newPath.empty()) path = newPath;
+				}
+				break;
+			}
+			
+			// Pick up piggy bank
+			carriedPiggyBankId = piggyBanks[closestIdx].piggyBankId;
+			piggyBanks[closestIdx].carriedByUnitId = id;
+			piggyBanks[closestIdx].x = x;
+			piggyBanks[closestIdx].y = y;
+			std::cout << "Unit " << name << " picked up piggy bank to bring home\n";
+		} else {
+			// Path to house
+			int unitGridX, unitGridY;
+			cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+			
+			if (unitGridX != houseGridX || unitGridY != houseGridY) {
+				if (path.empty()) {
+					auto newPath = aStarFindPath(unitGridX, unitGridY, houseGridX, houseGridY, cellGrid);
+					if (!newPath.empty()) path = newPath;
+				}
+				break;
+			}
+			
+			// At house, drop piggy bank (piggy banks don't go in house storage, just left at home)
+			auto it = std::find_if(piggyBanks.begin(), piggyBanks.end(), [&](const PiggyBank& pb) {
+				return pb.piggyBankId == carriedPiggyBankId;
+			});
+			if (it != piggyBanks.end()) {
+				it->carriedByUnitId = -1;
+				it->ownedByHouseId = id; // Mark as owned by unit
+				// Position at house
+				cellGrid.gridToPixel(houseGridX, houseGridY, it->x, it->y);
+				std::cout << "Unit " << name << " brought piggy bank home!\n";
+			}
+			
+			carriedPiggyBankId = -1;
+			actionQueue.pop();
 		}
 		break;
 	}

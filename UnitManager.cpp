@@ -6,6 +6,7 @@
 #include "CellGrid.h"
 #include "Buildings.h"
 #include "Unit.h"
+#include "sdlHeader.h"
 
 UnitManager::UnitManager() : font(nullptr) {
 }
@@ -154,6 +155,35 @@ void initializeGameUnits(UnitManager* unitManager, CellGrid* cellGrid) {
 		g_MarketManager->addMarket(Market(marketX, marketY));
 		std::cout << "Initialized market at grid (" << marketX << ", " << marketY << ")\n";
 	}
+}
+
+// Initialize default world items for firemaking and kiln system
+void initializeWorldItems(sdl& app) {
+	if (!app.cellGrid) return;
+
+	// Spawn 2 clay at random locations
+	if (app.clayManager) {
+		app.clayManager->spawnClay(300, 200);
+		app.clayManager->spawnClay(450, 250);
+	}
+
+	// Spawn 1 dry grass
+	if (app.dryGrassManager) {
+		app.dryGrassManager->spawnDryGrass(350, 300);
+	}
+
+	// Spawn 2 adjacent sticks (using grid coordinates to ensure adjacency)
+	if (app.stickManager && app.cellGrid) {
+		int gridX = 15;
+		int gridY = 15;
+		int pixelX1, pixelY1, pixelX2, pixelY2;
+		app.cellGrid->gridToPixel(gridX, gridY, pixelX1, pixelY1);
+		app.cellGrid->gridToPixel(gridX + 1, gridY, pixelX2, pixelY2); // Adjacent horizontally
+		app.stickManager->spawnStick(pixelX1, pixelY1);
+		app.stickManager->spawnStick(pixelX2, pixelY2);
+	}
+
+	std::cout << "Initialized world items: 2 clay, 1 dry grass, 2 adjacent sticks\n";
 }
 
 void UnitManager::renderUnitPaths(SDL_Renderer* renderer, const CellGrid& cellGrid) {

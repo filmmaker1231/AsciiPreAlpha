@@ -41,6 +41,51 @@ sdl runSdl() {
 	if (!state.coinManager->initializeFont(nullptr, 24)) {
 		std::cerr << "Warning: Failed to initialize font for coins." << std::endl;
 	}
+
+	state.stickManager = new StickManager();
+	if (!state.stickManager->initializeFont(nullptr, 24)) {
+		std::cerr << "Warning: Failed to initialize font for sticks." << std::endl;
+	}
+
+	state.firesticksManager = new FiresticksManager();
+	if (!state.firesticksManager->initializeFont(nullptr, 24)) {
+		std::cerr << "Warning: Failed to initialize font for firesticks." << std::endl;
+	}
+
+	state.clayManager = new ClayManager();
+	if (!state.clayManager->initializeFont(nullptr, 24)) {
+		std::cerr << "Warning: Failed to initialize font for clay." << std::endl;
+	}
+
+	state.shapedClayManager = new ShapedClayManager();
+	if (!state.shapedClayManager->initializeFont(nullptr, 24)) {
+		std::cerr << "Warning: Failed to initialize font for shaped clay." << std::endl;
+	}
+
+	state.brickManager = new BrickManager();
+	if (!state.brickManager->initializeFont(nullptr, 24)) {
+		std::cerr << "Warning: Failed to initialize font for bricks." << std::endl;
+	}
+
+	state.dryGrassManager = new DryGrassManager();
+	if (!state.dryGrassManager->initializeFont(nullptr, 24)) {
+		std::cerr << "Warning: Failed to initialize font for dry grass." << std::endl;
+	}
+
+	state.piggyBankManager = new PiggyBankManager();
+	if (!state.piggyBankManager->initializeFont(nullptr, 24)) {
+		std::cerr << "Warning: Failed to initialize font for piggy banks." << std::endl;
+	}
+
+	state.unfinishedKilnManager = new UnfinishedKilnManager();
+	if (!state.unfinishedKilnManager->initializeFont(nullptr, 24)) {
+		std::cerr << "Warning: Failed to initialize font for unfinished kilns." << std::endl;
+	}
+
+	state.kilnManager = new KilnManager();
+	if (!state.kilnManager->initializeFont(nullptr, 24)) {
+		std::cerr << "Warning: Failed to initialize font for kilns." << std::endl;
+	}
     
     // Initialize the global house manager
     g_HouseManager = new HouseManager();
@@ -75,6 +120,33 @@ void sdlDestroyWindow(sdl& app) {
     }
     if (app.coinManager) {
         delete app.coinManager;
+    }
+    if (app.stickManager) {
+        delete app.stickManager;
+    }
+    if (app.firesticksManager) {
+        delete app.firesticksManager;
+    }
+    if (app.clayManager) {
+        delete app.clayManager;
+    }
+    if (app.shapedClayManager) {
+        delete app.shapedClayManager;
+    }
+    if (app.brickManager) {
+        delete app.brickManager;
+    }
+    if (app.dryGrassManager) {
+        delete app.dryGrassManager;
+    }
+    if (app.piggyBankManager) {
+        delete app.piggyBankManager;
+    }
+    if (app.unfinishedKilnManager) {
+        delete app.unfinishedKilnManager;
+    }
+    if (app.kilnManager) {
+        delete app.kilnManager;
     }
     if (g_HouseManager) {
         delete g_HouseManager;
