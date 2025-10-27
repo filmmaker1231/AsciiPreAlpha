@@ -621,8 +621,18 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 					std::cout << "Unit " << name << " delivered coin (id " << it->coinId << ") to house storage.\n";
 				}
 			}
-		} else {
-			std::cout << "Unit " << name << " could not deliver coin: house full or missing.\n";
+		} else if (carriedCoinId != -1) {
+			// House full or missing - drop coin at current location
+			std::cout << "Unit " << name << " could not deliver coin: house full or missing. Dropping coin.\n";
+			auto it = std::find_if(coins.begin(), coins.end(), [&](const Coin& coin) {
+				return coin.coinId == carriedCoinId;
+			});
+			if (it != coins.end()) {
+				it->carriedByUnitId = -1;
+				it->ownedByHouseId = -1; // Make it free for anyone
+				// Leave coin at current unit position
+			}
+			carriedCoinId = -1;
 		}
 		actionQueue.pop();
 		break;
@@ -1057,6 +1067,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 			
 			if (!myHouse || !myHouse->hasFood()) {
 				// No house or no food to sell
+				std::cout << "Unit " << name << " cancelling SellAtMarket - no house or no food available.\n";
 				isSelling = false;
 				actionQueue.pop();
 				break;
@@ -1469,10 +1480,22 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 						std::cout << "Unit " << name << " stored coin at home.\n";
 					}
 				}
+			} else if (myHouse && !myHouse->hasSpace()) {
+				// House is full, drop coin at current location (outside house)
+				std::cout << "Unit " << name << " couldn't store coin - house is full. Dropping coin at house entrance.\n";
+				auto coinIt = std::find_if(coins.begin(), coins.end(), [&](const Coin& coin) {
+					return coin.coinId == carriedCoinId;
+				});
+				if (coinIt != coins.end()) {
+					coinIt->carriedByUnitId = -1;
+					coinIt->ownedByHouseId = -1; // Make it free for anyone to pick up
+					// Leave coin at current unit position
+				}
+				carriedCoinId = -1;
 			}
 			
 			// Check if there are more coins to bring
-			if (receivedCoins.empty()) {
+			if (receivedCoins.empty() && carriedCoinId == -1) {
 				actionQueue.pop();
 			}
 		}

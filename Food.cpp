@@ -210,6 +210,9 @@ void CoinManager::renderCoins(SDL_Renderer* renderer) {
     SDL_Color color = {255, 215, 0, 255}; // Gold color
     
     for (const auto& coinItem : coins) {
+        // Render all coins - carried coins move with units via Unit::processAction
+        // Coins in houses and at stalls are positioned at their storage locations
+        
         // Create surface with the coin symbol
         std::string symbolStr(1, coinItem.symbol);
         SDL_Surface* surface = TTF_RenderText_Solid(font, symbolStr.c_str(), color);
