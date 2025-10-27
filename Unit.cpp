@@ -1140,6 +1140,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 				it->x = px;
 				it->y = py;
 				it->carriedByUnitId = -1; // Not carried anymore, it's at the stall
+				it->ownedByHouseId = id; // Mark as owned by seller to prevent auto-collection
 			}
 			carriedFoodId = -1; // Not carrying anymore
 			
@@ -1252,6 +1253,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 			if (foodIt != foods.end()) {
 				carriedFoodId = foodId;
 				foodIt->carriedByUnitId = id;
+				foodIt->ownedByHouseId = -1; // Clear seller ownership, buyer now owns it
 				foodIt->x = x;
 				foodIt->y = y;
 			}
