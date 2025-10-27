@@ -157,35 +157,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 			});
 
 		if (it != foods.end()) {
-			// Drop seeds before eating the food
-			std::random_device rd;
-			std::mt19937 gen(rd());
-			std::uniform_int_distribution<> seedDist(1, 100);
-			int numSeeds = (seedDist(gen) <= 15) ? 2 : 1; // 15% chance for 2 seeds
-			
-			int pixelX, pixelY;
-			cellGrid.gridToPixel(gridX, gridY, pixelX, pixelY);
-			
-			for (int i = 0; i < numSeeds; ++i) {
-				// Create new seed at food location
-				Seed newSeed(pixelX, pixelY, "seed", g_nextSeedId++);
-				
-				// Check if this location is in the unit's home
-				if (g_HouseManager) {
-					for (auto& house : g_HouseManager->houses) {
-						if (house.ownerUnitId == id &&
-							gridX >= house.gridX && gridX < house.gridX + 3 &&
-							gridY >= house.gridY && gridY < house.gridY + 3) {
-							// Seed dropped in home, owned by homeowner
-							newSeed.ownedByHouseId = id;
-							break;
-						}
-					}
-				}
-				
-				seeds.push_back(newSeed);
-				std::cout << "Dropped seed " << newSeed.seedId << " at (" << gridX << ", " << gridY << ")\n";
-			}
+			// Seeds disabled for testing
 			
 			// Eat the food
 			hunger = 100;
@@ -1001,26 +973,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 					return food.foodId == foodId;
 				});
 				if (it != foods.end()) {
-					// Drop seeds before eating the food
-					std::random_device rd;
-					std::mt19937 gen(rd());
-					std::uniform_int_distribution<> seedDist(1, 100);
-					int numSeeds = (seedDist(gen) <= 15) ? 2 : 1; // 15% chance for 2 seeds
-					
-					int pixelX, pixelY;
-					cellGrid.gridToPixel(unitGridX, unitGridY, pixelX, pixelY);
-					
-					// Seed drops are owned by the house owner (not the thief)
-					for (int i = 0; i < numSeeds; ++i) {
-						// Create new seed at eating location (in the victim's home)
-						Seed newSeed(pixelX, pixelY, "seed", g_nextSeedId++);
-						
-						// Seed dropped in home, owned by the home owner (victim)
-						newSeed.ownedByHouseId = targetHouse->ownerUnitId;
-						
-						seeds.push_back(newSeed);
-						std::cout << "Dropped seed " << newSeed.seedId << " in house at (" << unitGridX << ", " << unitGridY << ") owned by unit " << targetHouse->ownerUnitId << "\n";
-					}
+					// Seeds disabled for testing
 					
 					// Eat the stolen food
 					hunger = 100;

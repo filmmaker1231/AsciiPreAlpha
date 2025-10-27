@@ -637,6 +637,13 @@ void runMainLoop(sdl& app) {
                                 seller.isSelling = false;
                                 seller.sellingStallX = -1;
                                 seller.sellingStallY = -1;
+                                // Clear SellAtMarket action if it's at the top
+                                if (!seller.actionQueue.empty()) {
+                                    const Action& topAction = seller.actionQueue.top();
+                                    if (topAction.type == ActionType::SellAtMarket) {
+                                        seller.actionQueue.pop();
+                                    }
+                                }
                                 // Mark coin as processed (no longer a fresh market coin)
                                 coin.fromMarketSale = false;
                             } else {
