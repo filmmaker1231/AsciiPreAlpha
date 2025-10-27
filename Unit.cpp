@@ -93,6 +93,16 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
                     it->y = y;
                 }
             }
+            
+            if (carriedCoinId != -1) {
+                auto it = std::find_if(coins.begin(), coins.end(), [&](const Coin& coin) {
+                    return coin.coinId == carriedCoinId;
+                });
+                if (it != coins.end()) {
+                    it->x = x;
+                    it->y = y;
+                }
+            }
         }
     }
 
@@ -500,6 +510,119 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 			}
 		} else {
 			std::cout << "Unit " << name << " could not deliver seed: house full or missing.\n";
+		}
+		actionQueue.pop();
+		break;
+	}
+	case ActionType::CollectCoin: {
+		// Similar to CollectSeed but for coins
+		// 1. If not carrying coin, path to closest free coin within 20 tiles
+		if (carriedCoinId == -1) {
+			// Not carrying coin - find closest free coin (not carried, not owned) within 20 tiles
+			int unitGridX, unitGridY;
+			cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+			
+			int minDist = std::numeric_limits<int>::max();
+			int closestIdx = -1;
+			int coinGridX = -1, coinGridY = -1;
+			
+			for (size_t i = 0; i < coins.size(); ++i) {
+				// Only consider coins that are not carried and not owned by any house
+				if (coins[i].carriedByUnitId != -1) continue;
+				if (coins[i].ownedByHouseId != -1) continue;
+				
+				int cx, cy;
+				cellGrid.pixelToGrid(coins[i].x, coins[i].y, cx, cy);
+				int dist = abs(cx - unitGridX) + abs(cy - unitGridY);
+				
+				// Only consider coins within 20 tiles
+				if (dist > 20) continue;
+				
+				if (dist < minDist) {
+					minDist = dist;
+					closestIdx = static_cast<int>(i);
+					coinGridX = cx;
+					coinGridY = cy;
+				}
+			}
+			
+			if (closestIdx == -1) {
+				// No coin found within 20 tiles, give up
+				actionQueue.pop();
+				break;
+			}
+			
+			// If not at coin, path to it
+			if (unitGridX != coinGridX || unitGridY != coinGridY) {
+				if (path.empty()) {
+					auto newPath = aStarFindPath(unitGridX, unitGridY, coinGridX, coinGridY, cellGrid);
+					if (!newPath.empty()) path = newPath;
+				}
+				break;
+			}
+			
+			// At coin, pick it up
+			if (closestIdx >= 0 && closestIdx < static_cast<int>(coins.size())) {
+				carriedCoinId = coins[closestIdx].coinId;
+				coins[closestIdx].carriedByUnitId = id;
+				coins[closestIdx].x = x;  // Synchronize carried item to unit position
+				coins[closestIdx].y = y;
+				std::cout << "Unit " << name << " picked up coin (id " << coins[closestIdx].coinId << ") to bring home.\n";
+			} else {
+				// Coin was taken by someone else
+				actionQueue.pop();
+			}
+			break;
+		}
+		
+		// 2. If carrying coin, path to house
+		int unitGridX, unitGridY;
+		cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+		if (unitGridX != houseGridX || unitGridY != houseGridY) {
+			if (path.empty()) {
+				auto newPath = aStarFindPath(unitGridX, unitGridY, houseGridX, houseGridY, cellGrid);
+				if (!newPath.empty()) path = newPath;
+			}
+			break;
+		}
+		
+		// 3. At house, deposit coin if house has space
+		House* myHouse = nullptr;
+		if (g_HouseManager) {
+			for (auto& house : g_HouseManager->houses) {
+				if (house.ownerUnitId == id &&
+					house.gridX == houseGridX && house.gridY == houseGridY) {
+					myHouse = &house;
+					break;
+				}
+			}
+		}
+		
+		if (myHouse && myHouse->hasSpace() && carriedCoinId != -1) {
+			// Find the coin object and mark it as owned by house
+			auto it = std::find_if(coins.begin(), coins.end(), [&](const Coin& coin) {
+				return coin.coinId == carriedCoinId;
+			});
+			if (it != coins.end()) {
+				if (myHouse->addCoin(carriedCoinId)) {
+					it->carriedByUnitId = -1;
+					it->ownedByHouseId = myHouse->ownerUnitId;
+					// Position coin in house storage (find which slot it was placed in)
+					bool positioned = false;
+					for (int dx = 0; dx < 3 && !positioned; ++dx) {
+						for (int dy = 0; dy < 3 && !positioned; ++dy) {
+							if (myHouse->coinIds[dx][dy] == carriedCoinId) {
+								cellGrid.gridToPixel(houseGridX + dx, houseGridY + dy, it->x, it->y);
+								positioned = true;
+							}
+						}
+					}
+					carriedCoinId = -1;
+					std::cout << "Unit " << name << " delivered coin (id " << it->coinId << ") to house storage.\n";
+				}
+			}
+		} else {
+			std::cout << "Unit " << name << " could not deliver coin: house full or missing.\n";
 		}
 		actionQueue.pop();
 		break;

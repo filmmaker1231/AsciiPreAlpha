@@ -325,6 +325,55 @@ void runMainLoop(sdl& app) {
 				}
 			}
 
+			// --- AUTO COLLECT COINS LOGIC (Priority 3) ---
+			// Collect free coins within 20 tiles and bring them home
+			if (app.coinManager && !app.coinManager->getCoins().empty()) {
+				bool alreadyCollectingCoin = false;
+				if (!unit.actionQueue.empty()) {
+					Action current = unit.actionQueue.top();
+					if (current.type == ActionType::CollectCoin) {
+						alreadyCollectingCoin = true;
+					}
+				}
+				
+				if (!alreadyCollectingCoin && g_HouseManager) {
+					// Check if unit has a house with space
+					for (auto& house : g_HouseManager->houses) {
+						if (house.ownerUnitId == unit.id &&
+							house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
+							if (house.hasSpace()) {
+								// Get unit's grid position
+								int unitGridX, unitGridY;
+								app.cellGrid->pixelToGrid(unit.x, unit.y, unitGridX, unitGridY);
+								
+								// Check if there's any free coin within 20 tiles
+								bool hasCollectableCoin = false;
+								for (const auto& coin : app.coinManager->getCoins()) {
+									if (coin.carriedByUnitId == -1 && coin.ownedByHouseId == -1) {
+										// Get coin's grid position
+										int coinGridX, coinGridY;
+										app.cellGrid->pixelToGrid(coin.x, coin.y, coinGridX, coinGridY);
+										
+										// Calculate Manhattan distance
+										int distance = abs(coinGridX - unitGridX) + abs(coinGridY - unitGridY);
+										
+										// Check if coin is within 20 tiles
+										if (distance <= 20) {
+											hasCollectableCoin = true;
+											break;
+										}
+									}
+								}
+								if (hasCollectableCoin) {
+									unit.addAction(Action(ActionType::CollectCoin, 3));
+								}
+							}
+							break;
+						}
+					}
+				}
+			}
+
 			// --- AUTO BUILD FARM LOGIC (Priority 4) ---
 			// Build farm if we have at least 1 seed in house and no farm yet
 			if (g_HouseManager && g_FarmManager) {

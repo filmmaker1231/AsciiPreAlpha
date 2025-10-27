@@ -8,6 +8,7 @@ enum class ActionType {
     BringItemToHouse,
     EatFromHouse,
     CollectSeed,
+    CollectCoin,
     BuildFarm,
     PlantSeed,
     HarvestFood,
