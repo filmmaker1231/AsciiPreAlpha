@@ -15,6 +15,7 @@ enum class ActionType {
     Fight,
     SellAtMarket,
     BuyAtMarket,
+    BringCoinToHouse,
     // Add more as needed
 };
 

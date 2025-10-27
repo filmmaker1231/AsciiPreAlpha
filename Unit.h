@@ -22,6 +22,7 @@ public:
 	int carriedSeedId = -1; // ID of seed being carried, -1 if none
 	int carriedCoinId = -1; // ID of coin being carried, -1 if none
 	std::vector<int> coinInventory; // IDs of coins in unit's inventory
+	std::vector<int> receivedCoins; // IDs of coins received from sales (to be picked up)
 	Uint32 lastHungerUpdate = 0;
 	Uint32 lastHungerDebugPrint = 0;
 	Uint32 lastMoralityUpdate = 0;
@@ -39,6 +40,8 @@ public:
 	int sellingStallX = -1; // Grid X of market stall where unit is selling
 	int sellingStallY = -1; // Grid Y of market stall where unit is selling
 	Uint32 lastAtStallTime = 0; // Last time unit was at their stall
+	int justSoldToUnitId = -1; // ID of buyer unit who just bought from this seller (for coin transfer)
+	int coinToReceive = -1; // Coin ID to receive from last sale
 
 	std::vector<std::pair<int, int>> path;
 	std::priority_queue<Action, std::vector<Action>, ActionComparator> actionQueue;

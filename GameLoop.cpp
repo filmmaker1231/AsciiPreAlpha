@@ -99,6 +99,20 @@ void runMainLoop(sdl& app) {
         // Process units
         for (auto& unit : app.unitManager->getUnits()) {
 
+			// --- CHECK FOR COINS TO BRING HOME AFTER SELLING ---
+			if (!unit.receivedCoins.empty() && unit.carriedCoinId == -1) {
+				bool alreadyBringingCoin = false;
+				if (!unit.actionQueue.empty()) {
+					Action current = unit.actionQueue.top();
+					if (current.type == ActionType::BringCoinToHouse) {
+						alreadyBringingCoin = true;
+					}
+				}
+				if (!alreadyBringingCoin) {
+					unit.addAction(Action(ActionType::BringCoinToHouse, 3));
+				}
+			}
+
 			// --- AUTO BRING FOOD TO HOUSE LOGIC ---
 // Only if the unit is not already bringing food, and house is not full
 			bool alreadyBringingFood = false;
@@ -619,6 +633,36 @@ void runMainLoop(sdl& app) {
 				}
 				// Clear the flag
 				thief.justStoleFromUnitId = -1;
+			}
+		}
+
+		// --- HANDLE COIN OWNERSHIP FROM MARKET TRANSACTIONS ---
+		// Check for coins marked as owned by sellers and add them to receivedCoins
+		if (app.coinManager) {
+			for (auto& coin : app.coinManager->getCoins()) {
+				if (coin.ownedByHouseId != -1 && coin.carriedByUnitId == -1) {
+					// Find the seller unit and add coin to their receivedCoins if not already there
+					for (auto& seller : app.unitManager->getUnits()) {
+						if (seller.id == coin.ownedByHouseId) {
+							// Check if coin is already in receivedCoins
+							bool alreadyAdded = false;
+							for (int receivedCoin : seller.receivedCoins) {
+								if (receivedCoin == coin.coinId) {
+									alreadyAdded = true;
+									break;
+								}
+							}
+							if (!alreadyAdded) {
+								seller.receivedCoins.push_back(coin.coinId);
+								// Clear the seller's selling status
+								seller.isSelling = false;
+								seller.sellingStallX = -1;
+								seller.sellingStallY = -1;
+							}
+							break;
+						}
+					}
+				}
 			}
 		}
 

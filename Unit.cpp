@@ -1129,17 +1129,12 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 				break;
 			}
 			
-			// Transfer coin to seller's inventory
+			// Transfer coin to seller (will be processed in GameLoop)
 			int coinId = coinInventory.back();
 			coinInventory.pop_back();
 			
-			// We need to find the seller unit and add the coin to their inventory
-			// This will be handled in GameLoop where we have access to all units
-			// For now, mark the coin as being transferred (we'll handle it in GameLoop)
-			// Store coinId in a temporary variable for GameLoop to process
-			
-			// For simplicity, we'll add the coin directly to the seller's house
-			// (assuming they'll bring it home later)
+			// Mark the transaction for GameLoop to process
+			// GameLoop will add coin to seller's receivedCoins and trigger BringCoinToHouse
 			
 			// Pick up the food
 			auto foodIt = std::find_if(foods.begin(), foods.end(), [&](const Food& food) {
@@ -1154,10 +1149,12 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 			
 			// Clear the stall
 			targetMarket->stallFoodIds[stallX][stallY] = -1;
+			// Keep seller ID for GameLoop to find the seller
+			int sellerIdTemp = targetMarket->stallSellerIds[stallX][stallY];
 			targetMarket->stallSellerIds[stallX][stallY] = -1;
 			targetMarket->stallAbandonTimes[stallX][stallY] = 0;
 			
-			// Create coin for seller (add to world at stall location for seller to pick up)
+			// Place coin at stall for GameLoop to handle
 			auto coinIt = std::find_if(coins.begin(), coins.end(), [&](const Coin& coin) {
 				return coin.coinId == coinId;
 			});
@@ -1167,11 +1164,10 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 				coinIt->x = px;
 				coinIt->y = py;
 				coinIt->carriedByUnitId = -1;
-				// Mark coin for seller to pick up (we'll use a special marker)
-				// For now, just leave it at the stall location
+				coinIt->ownedByHouseId = sellerIdTemp; // Mark as owned by seller
 			}
 			
-			std::cout << "Unit " << name << " (buyer) and seller (id " << sellerId << ") have made a deal.\n";
+			std::cout << "Unit " << name << " (buyer) and seller (id " << sellerIdTemp << ") have made a deal.\n";
 			
 			// Buyer action depends on hunger
 			// This will be handled next iteration
@@ -1257,6 +1253,103 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 						}
 					}
 				}
+				actionQueue.pop();
+			}
+		}
+		break;
+	}
+	case ActionType::BringCoinToHouse: {
+		// Bring coin from stall to house after selling
+		// 1. If not carrying coin, navigate to coin location and pick it up
+		if (carriedCoinId == -1 && !receivedCoins.empty()) {
+			// Find a coin that's owned by this seller
+			int coinId = receivedCoins.front();
+			auto coinIt = std::find_if(coins.begin(), coins.end(), [&](const Coin& coin) {
+				return coin.coinId == coinId && coin.ownedByHouseId == id;
+			});
+			
+			if (coinIt == coins.end()) {
+				// Coin not found or already picked up
+				receivedCoins.erase(receivedCoins.begin());
+				if (receivedCoins.empty()) {
+					actionQueue.pop();
+				}
+				break;
+			}
+			
+			// Navigate to coin
+			int coinGridX, coinGridY;
+			cellGrid.pixelToGrid(coinIt->x, coinIt->y, coinGridX, coinGridY);
+			int unitGridX, unitGridY;
+			cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+			
+			if (unitGridX != coinGridX || unitGridY != coinGridY) {
+				if (path.empty()) {
+					auto newPath = aStarFindPath(unitGridX, unitGridY, coinGridX, coinGridY, cellGrid);
+					if (!newPath.empty()) path = newPath;
+				}
+				break;
+			}
+			
+			// Pick up the coin
+			carriedCoinId = coinId;
+			coinIt->carriedByUnitId = id;
+			coinIt->x = x;
+			coinIt->y = y;
+			receivedCoins.erase(receivedCoins.begin());
+			std::cout << "Unit " << name << " picked up coin (id " << coinId << ") from sale to bring home.\n";
+			break;
+		}
+		
+		// 2. If carrying coin, navigate to house
+		if (carriedCoinId != -1) {
+			int unitGridX, unitGridY;
+			cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+			if (unitGridX != houseGridX || unitGridY != houseGridY) {
+				if (path.empty()) {
+					auto newPath = aStarFindPath(unitGridX, unitGridY, houseGridX, houseGridY, cellGrid);
+					if (!newPath.empty()) path = newPath;
+				}
+				break;
+			}
+			
+			// At house, store the coin
+			House* myHouse = nullptr;
+			if (g_HouseManager) {
+				for (auto& house : g_HouseManager->houses) {
+					if (house.ownerUnitId == id &&
+						house.gridX == houseGridX && house.gridY == houseGridY) {
+						myHouse = &house;
+						break;
+					}
+				}
+			}
+			
+			if (myHouse && myHouse->hasSpace()) {
+				auto coinIt = std::find_if(coins.begin(), coins.end(), [&](const Coin& coin) {
+					return coin.coinId == carriedCoinId;
+				});
+				if (coinIt != coins.end()) {
+					if (myHouse->addCoin(carriedCoinId)) {
+						coinIt->carriedByUnitId = -1;
+						coinIt->ownedByHouseId = id;
+						// Position coin in house
+						for (int dx = 0; dx < 3; ++dx) {
+							for (int dy = 0; dy < 3; ++dy) {
+								if (myHouse->coinIds[dx][dy] == carriedCoinId) {
+									cellGrid.gridToPixel(houseGridX + dx, houseGridY + dy, coinIt->x, coinIt->y);
+									break;
+								}
+							}
+						}
+						carriedCoinId = -1;
+						std::cout << "Unit " << name << " stored coin at home.\n";
+					}
+				}
+			}
+			
+			// Check if there are more coins to bring
+			if (receivedCoins.empty()) {
 				actionQueue.pop();
 			}
 		}
