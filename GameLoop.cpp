@@ -13,6 +13,12 @@
 #include <SDL_ttf.h>
 #include <iostream>
 
+// Trading system constants
+const int TRADING_CHECK_INTERVAL = 300;  // Check every 300 frames (~5 seconds at 60 FPS)
+const int EXCESS_FOOD_THRESHOLD = 2;     // Sell when house has more than this many food items
+const int LOW_FOOD_THRESHOLD = 1;        // Buy when house has fewer than this many food items
+const int MIN_COINS_FOR_PURCHASE = 3;    // Minimum coins needed to consider buying food
+
 void runMainLoop(sdl& app) {
     bool running = true;
     SDL_Event event;
@@ -75,13 +81,13 @@ void runMainLoop(sdl& app) {
                 }
             }
             
-            // Market trading logic - check every 300 frames (~5 seconds at 60 FPS)
-            if ((frameCounter % 300 == 0) && g_HouseManager && g_MarketManager && !g_MarketManager->markets.empty()) {
+            // Market trading logic - check every TRADING_CHECK_INTERVAL frames
+            if ((frameCounter % TRADING_CHECK_INTERVAL == 0) && g_HouseManager && g_MarketManager && !g_MarketManager->markets.empty()) {
                 // Find unit's house
                 for (const auto& house : g_HouseManager->houses) {
                     if (house.ownerUnitId == unit.id) {
-                        // If unit has excess food (more than 2), consider selling
-                        if (house.foodIds.size() > 2) {
+                        // If unit has excess food (more than EXCESS_FOOD_THRESHOLD), consider selling
+                        if (house.foodIds.size() > EXCESS_FOOD_THRESHOLD) {
                             bool alreadyTrading = false;
                             if (!unit.actionQueue.empty()) {
                                 Action current = unit.actionQueue.top();
@@ -95,8 +101,8 @@ void runMainLoop(sdl& app) {
                                 std::cout << "Unit " << unit.name << " will sell food at market\n";
                             }
                         }
-                        // If unit has low food (less than 1) and enough coins, consider buying
-                        else if (house.foodIds.size() < 1 && house.coins >= 3) {
+                        // If unit has low food (less than LOW_FOOD_THRESHOLD) and enough coins, consider buying
+                        else if (house.foodIds.size() < LOW_FOOD_THRESHOLD && house.coins >= MIN_COINS_FOR_PURCHASE) {
                             bool alreadyTrading = false;
                             if (!unit.actionQueue.empty()) {
                                 Action current = unit.actionQueue.top();

@@ -6,6 +6,9 @@
 // Comprehensive simulation testing both bug fixes and market system
 class GameSimulation {
 private:
+    // Pathfinding constants
+    static const int MAX_PATHFINDING_DISTANCE = 100; // Maximum distance for successful pathfinding
+    
     struct Food {
         int x, y, foodId;
         Food(int x, int y, int id) : x(x), y(y), foodId(id) {}
@@ -57,7 +60,7 @@ private:
     bool createPathToLocation(Unit& unit, int targetX, int targetY) {
         // Simplified pathfinding - just check if reachable
         int dist = abs(targetX - unit.x) + abs(targetY - unit.y);
-        if (dist > 100) {
+        if (dist > MAX_PATHFINDING_DISTANCE) {
             return false; // Too far, pathfinding fails
         }
         unit.path.clear();
