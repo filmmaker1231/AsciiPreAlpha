@@ -39,6 +39,8 @@ public:
 // Initialize with sample units - call this from main
 void initializeGameUnits(UnitManager* unitManager, CellGrid* cellGrid);
 
-
+// Initialize default world items - call this from main after initializeGameUnits
+struct sdl; // Forward declaration
+void initializeWorldItems(sdl& app);
 
 

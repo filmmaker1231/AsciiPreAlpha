@@ -16,6 +16,9 @@ int main() {
 
     // Correct call to initialize units
     initializeGameUnits(app.unitManager, app.cellGrid);
+    
+    // Initialize default world items
+    initializeWorldItems(app);
 
     runMainLoop(app);
 

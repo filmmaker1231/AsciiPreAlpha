@@ -57,7 +57,10 @@ void Unit::addAction(const Action& action) {
     }
 }
 
-void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vector<Seed>& seeds, std::vector<Coin>& coins) {
+void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vector<Seed>& seeds, std::vector<Coin>& coins,
+                         std::vector<Stick>& sticks, std::vector<Firesticks>& firesticks, std::vector<Clay>& clays,
+                         std::vector<ShapedClay>& shapedClays, std::vector<Brick>& bricks, std::vector<DryGrass>& dryGrasses,
+                         std::vector<PiggyBank>& piggyBanks, std::vector<UnfinishedKiln>& unfinishedKilns, std::vector<Kiln>& kilns) {
 
     // First, handle any path movement (works with or without actions)
     // This allows manually-assigned paths (e.g., via P+click) to be followed

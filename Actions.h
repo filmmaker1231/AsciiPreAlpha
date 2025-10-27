@@ -17,6 +17,15 @@ enum class ActionType {
     SellAtMarket,
     BuyAtMarket,
     BringCoinToHouse,
+    MakeFire,           // Rub two adjacent sticks to make fire
+    ShapeClay,          // Shape clay into shaped clay
+    CreateBrick,        // Transform shaped clay to brick (passive)
+    BuildUnfinishedKiln, // Create unfinished kiln from brick
+    BringFiresticksToKiln, // Bring firesticks to unfinished kiln
+    BringDryGrassToKiln,   // Bring dry grass to unfinished kiln
+    FinishKiln,         // Complete kiln construction
+    MakePiggyBank,      // Create piggy bank at kiln from clay
+    BringPiggyBankHome, // Bring piggy bank home
     // Add more as needed
 };
 

@@ -156,6 +156,40 @@ void runMainLoop(sdl& app) {
             }
         }
 
+        // --- SHAPED CLAY AUTO-TRANSFORMATION TO BRICK ---
+        if (app.shapedClayManager && app.brickManager) {
+            auto& shapedClays = app.shapedClayManager->getShapedClays();
+            for (auto it = shapedClays.begin(); it != shapedClays.end(); ) {
+                // Check if 10 seconds have passed since creation
+                if (now - it->creationTime >= 10000) {
+                    // Transform to brick at same position
+                    int x = it->x;
+                    int y = it->y;
+                    int carriedBy = it->carriedByUnitId;
+                    
+                    std::cout << "Shaped clay (id " << it->shapedClayId << ") transformed into brick after 10 seconds\n";
+                    
+                    // Remove shaped clay
+                    it = shapedClays.erase(it);
+                    
+                    // Create brick at same position
+                    app.brickManager->spawnBrick(x, y);
+                    
+                    // If shaped clay was being carried, transfer to brick
+                    if (carriedBy != -1) {
+                        auto& bricks = app.brickManager->getBricks();
+                        if (!bricks.empty()) {
+                            bricks.back().carriedByUnitId = carriedBy;
+                            // Update unit's carried item
+                            // TODO: Add carriedBrickId to Unit if needed for this system
+                        }
+                    }
+                } else {
+                    ++it;
+                }
+            }
+        }
+
         // Process units
         if (app.unitManager) {
             auto& unitsRef = app.unitManager->getUnits();
@@ -626,7 +660,10 @@ void runMainLoop(sdl& app) {
 
                 // Process actions and movement
                 if (!unit.actionQueue.empty() || !unit.path.empty()) {
-                    unit.processAction(*app.cellGrid, app.foodManager->getFood(), app.seedManager->getSeeds(), app.coinManager->getCoins());
+                    unit.processAction(*app.cellGrid, app.foodManager->getFood(), app.seedManager->getSeeds(), app.coinManager->getCoins(),
+                                      app.stickManager->getSticks(), app.firesticksManager->getFiresticks(), app.clayManager->getClays(),
+                                      app.shapedClayManager->getShapedClays(), app.brickManager->getBricks(), app.dryGrassManager->getDryGrasses(),
+                                      app.piggyBankManager->getPiggyBanks(), app.unfinishedKilnManager->getUnfinishedKilns(), app.kilnManager->getKilns());
                 }
 
                 // Ensure a default Wander action exists
@@ -808,6 +845,17 @@ void runMainLoop(sdl& app) {
         if (app.foodManager) app.foodManager->renderFood(app.renderer);
         if (app.seedManager) app.seedManager->renderSeeds(app.renderer);
         if (app.coinManager) app.coinManager->renderCoins(app.renderer);
+        
+        // Render new crafting items
+        if (app.stickManager) app.stickManager->renderSticks(app.renderer);
+        if (app.firesticksManager) app.firesticksManager->renderFiresticks(app.renderer);
+        if (app.clayManager) app.clayManager->renderClays(app.renderer);
+        if (app.shapedClayManager) app.shapedClayManager->renderShapedClays(app.renderer);
+        if (app.brickManager) app.brickManager->renderBricks(app.renderer);
+        if (app.dryGrassManager) app.dryGrassManager->renderDryGrasses(app.renderer);
+        if (app.piggyBankManager) app.piggyBankManager->renderPiggyBanks(app.renderer);
+        if (app.unfinishedKilnManager) app.unfinishedKilnManager->renderUnfinishedKilns(app.renderer);
+        if (app.kilnManager) app.kilnManager->renderKilns(app.renderer);
 
         // Render pause indicator
         if (app.isPaused) {

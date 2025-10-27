@@ -32,6 +32,11 @@ void handleInput(sdl& app) {
     bool pHeld = keyState[SDL_SCANCODE_P];
     bool dHeld = keyState[SDL_SCANCODE_D];
     bool cHeld = keyState[SDL_SCANCODE_C];
+    bool zeroHeld = keyState[SDL_SCANCODE_0];
+    bool threeHeld = keyState[SDL_SCANCODE_3];
+    bool bHeld = keyState[SDL_SCANCODE_B];
+    bool gHeld = keyState[SDL_SCANCODE_G];
+    bool lHeld = keyState[SDL_SCANCODE_L];
 
     int mouseX, mouseY;
     Uint32 mouseButtons = SDL_GetMouseState(&mouseX, &mouseY);
@@ -68,6 +73,56 @@ void handleInput(sdl& app) {
 		if (currentTime - lastFoodSpawnTime >= SPAWN_DEBOUNCE_MS) {
 			if (app.coinManager) {
 				app.coinManager->spawnCoin(mouseX, mouseY);
+				lastFoodSpawnTime = currentTime;
+			}
+		}
+	}
+
+	// Spawn stick with 0 + click (with debounce)
+	if (zeroHeld && (mouseButtons & SDL_BUTTON(SDL_BUTTON_LEFT))) {
+		if (currentTime - lastFoodSpawnTime >= SPAWN_DEBOUNCE_MS) {
+			if (app.stickManager) {
+				app.stickManager->spawnStick(mouseX, mouseY);
+				lastFoodSpawnTime = currentTime;
+			}
+		}
+	}
+
+	// Spawn clay with L + click (with debounce) - using L since C is taken by coins
+	if (lHeld && (mouseButtons & SDL_BUTTON(SDL_BUTTON_LEFT))) {
+		if (currentTime - lastFoodSpawnTime >= SPAWN_DEBOUNCE_MS) {
+			if (app.clayManager) {
+				app.clayManager->spawnClay(mouseX, mouseY);
+				lastFoodSpawnTime = currentTime;
+			}
+		}
+	}
+
+	// Spawn shaped clay with 3 + click (with debounce)
+	if (threeHeld && (mouseButtons & SDL_BUTTON(SDL_BUTTON_LEFT))) {
+		if (currentTime - lastFoodSpawnTime >= SPAWN_DEBOUNCE_MS) {
+			if (app.shapedClayManager) {
+				app.shapedClayManager->spawnShapedClay(mouseX, mouseY);
+				lastFoodSpawnTime = currentTime;
+			}
+		}
+	}
+
+	// Spawn brick with B + click (with debounce)
+	if (bHeld && (mouseButtons & SDL_BUTTON(SDL_BUTTON_LEFT))) {
+		if (currentTime - lastFoodSpawnTime >= SPAWN_DEBOUNCE_MS) {
+			if (app.brickManager) {
+				app.brickManager->spawnBrick(mouseX, mouseY);
+				lastFoodSpawnTime = currentTime;
+			}
+		}
+	}
+
+	// Spawn dry grass with G + click (with debounce)
+	if (gHeld && (mouseButtons & SDL_BUTTON(SDL_BUTTON_LEFT))) {
+		if (currentTime - lastFoodSpawnTime >= SPAWN_DEBOUNCE_MS) {
+			if (app.dryGrassManager) {
+				app.dryGrassManager->spawnDryGrass(mouseX, mouseY);
 				lastFoodSpawnTime = currentTime;
 			}
 		}
