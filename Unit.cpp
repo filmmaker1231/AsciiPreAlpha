@@ -1154,8 +1154,8 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 	}
 	case ActionType::BuyAtMarket: {
 		// Buy food from a market stall
-		// 1. If not carrying coin, go to house and pick up coin
-		if (carriedCoinId == -1) {
+		// 1. If not carrying coin and not carrying food, go to house and pick up coin
+		if (carriedCoinId == -1 && carriedFoodId == -1) {
 			House* myHouse = nullptr;
 			if (g_HouseManager) {
 				for (auto& house : g_HouseManager->houses) {
