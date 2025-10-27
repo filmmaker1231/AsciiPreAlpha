@@ -625,7 +625,7 @@ void runMainLoop(sdl& app) {
         // --- HANDLE COIN OWNERSHIP FROM MARKET TRANSACTIONS ---
         if (app.coinManager && app.unitManager) {
             for (auto& coin : app.coinManager->getCoins()) {
-                if (coin.ownedByHouseId != -1 && coin.carriedByUnitId == -1) {
+                if (coin.ownedByHouseId != -1 && coin.carriedByUnitId == -1 && coin.fromMarketSale) {
                     for (auto& seller : app.unitManager->getUnits()) {
                         if (seller.id == coin.ownedByHouseId) {
                             bool alreadyAdded = false;
