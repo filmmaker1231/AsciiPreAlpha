@@ -3,6 +3,7 @@
 #include "InputHandler.h"
 #include "Pathfinding.h"
 #include "Food.h"
+#include "Buildings.h"
 
 // Pass sdl& app as a parameter
  // Make sure to include your pathfinding header
@@ -10,6 +11,7 @@
 // Initialize debounce timers
 Uint32 lastUnitSpawnTime = 0;
 Uint32 lastFoodSpawnTime = 0;
+Uint32 lastDeleteTime = 0;
 
 void handleInput(sdl& app) {
     const Uint8* keyState = SDL_GetKeyboardState(nullptr);
@@ -19,6 +21,8 @@ void handleInput(sdl& app) {
 	bool fHeld = keyState[SDL_SCANCODE_F];
     bool uHeld = keyState[SDL_SCANCODE_U];
     bool pHeld = keyState[SDL_SCANCODE_P];
+    bool dHeld = keyState[SDL_SCANCODE_D];
+    bool cHeld = keyState[SDL_SCANCODE_C];
 
     int mouseX, mouseY;
     Uint32 mouseButtons = SDL_GetMouseState(&mouseX, &mouseY);
@@ -50,6 +54,16 @@ void handleInput(sdl& app) {
         }
     }
 
+	// Spawn coin with C + click (with debounce)
+	if (cHeld && (mouseButtons & SDL_BUTTON(SDL_BUTTON_LEFT))) {
+		if (currentTime - lastFoodSpawnTime >= SPAWN_DEBOUNCE_MS) {
+			if (app.coinManager) {
+				app.coinManager->spawnCoin(mouseX, mouseY);
+				lastFoodSpawnTime = currentTime;
+			}
+		}
+	}
+
     // Path last unit with P + click
     if (pHeld && (mouseButtons & SDL_BUTTON(SDL_BUTTON_LEFT))) {
         if (app.unitManager && app.cellGrid) {
@@ -68,6 +82,94 @@ void handleInput(sdl& app) {
 
                 // Assign path to unit
                 unit.path = path;
+            }
+        }
+    }
+
+    // Delete unit or food with D + click (with debounce)
+    if (dHeld && (mouseButtons & SDL_BUTTON(SDL_BUTTON_LEFT))) {
+        if (currentTime - lastDeleteTime >= DELETE_DEBOUNCE_MS) {
+            const int clickRadius = 20;
+            bool deletedSomething = false;
+            
+            // Try to delete a unit first
+            bool deletedUnit = false;
+            if (app.unitManager) {
+                // First, find if there's a unit at this location and get its carried items
+                int carriedFoodId = -1;
+                int carriedSeedId = -1;
+                for (const auto& unit : app.unitManager->getUnits()) {
+                    if (mouseX >= unit.x - clickRadius && mouseX <= unit.x + clickRadius &&
+                        mouseY >= unit.y - clickRadius && mouseY <= unit.y + clickRadius) {
+                        carriedFoodId = unit.carriedFoodId;
+                        carriedSeedId = unit.carriedSeedId;
+                        break;
+                    }
+                }
+                
+                // Delete the unit
+                deletedUnit = app.unitManager->deleteUnitAt(mouseX, mouseY);
+                
+                // Clear carried items from food/seed managers
+                if (deletedUnit) {
+                    deletedSomething = true;
+                    if (carriedFoodId != -1 && app.foodManager) {
+                        for (auto& foodItem : app.foodManager->getFood()) {
+                            if (foodItem.foodId == carriedFoodId) {
+                                foodItem.carriedByUnitId = -1;
+                                break;
+                            }
+                        }
+                    }
+                    if (carriedSeedId != -1 && app.seedManager) {
+                        for (auto& seedItem : app.seedManager->getSeeds()) {
+                            if (seedItem.seedId == carriedSeedId) {
+                                seedItem.carriedByUnitId = -1;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // If no unit was deleted, try to delete food
+            if (!deletedUnit && app.foodManager) {
+                // First, find if there's food at this location and get its ID
+                int deletedFoodId = -1;
+                for (const auto& foodItem : app.foodManager->getFood()) {
+                    if (mouseX >= foodItem.x - clickRadius && mouseX <= foodItem.x + clickRadius &&
+                        mouseY >= foodItem.y - clickRadius && mouseY <= foodItem.y + clickRadius) {
+                        deletedFoodId = foodItem.foodId;
+                        break;
+                    }
+                }
+                
+                // Delete the food
+                if (app.foodManager->deleteFoodAt(mouseX, mouseY)) {
+                    deletedSomething = true;
+                    if (deletedFoodId != -1) {
+                        // Clear any unit carrying this food
+                        if (app.unitManager) {
+                            for (auto& unit : app.unitManager->getUnits()) {
+                                if (unit.carriedFoodId == deletedFoodId) {
+                                    unit.carriedFoodId = -1;
+                                }
+                            }
+                        }
+                        
+                        // Remove food from any house storage
+                        if (g_HouseManager) {
+                            for (auto& house : g_HouseManager->houses) {
+                                house.removeFoodById(deletedFoodId);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Only update debounce timer if something was actually deleted
+            if (deletedSomething) {
+                lastDeleteTime = currentTime;
             }
         }
     }

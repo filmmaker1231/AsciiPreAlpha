@@ -76,6 +76,38 @@ void UnitManager::spawnUnit(int x, int y, const std::string& name, CellGrid* cel
 
 }
 
+bool UnitManager::deleteUnitAt(int x, int y) {
+    // Use a larger click area to make it easier to select units
+    // Assuming characters are roughly 20x20 pixels (this can be adjusted)
+    const int clickRadius = 20;
+    
+    for (auto it = units.begin(); it != units.end(); ++it) {
+        // Check if click is within the unit's bounding box
+        if (x >= it->x - clickRadius && x <= it->x + clickRadius &&
+            y >= it->y - clickRadius && y <= it->y + clickRadius) {
+            std::cout << "Deleted unit '" << it->name << "' (id " << it->id << ") at (" << it->x << ", " << it->y << ")" << std::endl;
+            
+            // Clean up any references to this unit before deletion
+            int deletedId = it->id;
+            
+            // Clear any theft tracking involving this unit
+            for (auto& otherUnit : units) {
+                if (otherUnit.stolenFromByUnitId == deletedId) {
+                    otherUnit.stolenFromByUnitId = -1;
+                    otherUnit.fightingTargetId = -1;
+                }
+                if (otherUnit.fightingTargetId == deletedId) {
+                    otherUnit.fightingTargetId = -1;
+                }
+            }
+            
+            units.erase(it);
+            return true;
+        }
+    }
+    return false;
+}
+
 
 void UnitManager::renderUnits(SDL_Renderer* renderer) {
     if (!font) {
@@ -110,29 +142,22 @@ void initializeGameUnits(UnitManager* unitManager, CellGrid* cellGrid) {
     }
 
     // Spawn a few sample units
-    unitManager->spawnUnit(200, 150, "Player", cellGrid);
-    unitManager->spawnUnit(400, 300, "Guard", cellGrid);
-    unitManager->spawnUnit(600, 450, "Merchant", cellGrid);
-
-    // Set moveDelay for all units after spawning
-    for (auto& unit : unitManager->getUnits()) {
-        unit.moveDelay = 50;
-    }
+    unitManager->spawnUnit(200, 150, "Bubby", cellGrid);
+	
     
-    // Initialize markets if MarketManager exists
-    if (g_MarketManager && cellGrid) {
-        int gridWidth = cellGrid->getWidthInCells();
-        int gridHeight = cellGrid->getHeightInCells();
-        
-        // Create a market in the middle of the map
-        int marketX = gridWidth / 2;
-        int marketY = gridHeight / 2;
-        g_MarketManager->addMarket(Market(marketX, marketY, 
-                                          DEFAULT_MARKET_STOCK, 
-                                          DEFAULT_MARKET_COINS, 
-                                          DEFAULT_MARKET_PRICE));
-        std::cout << "Created market at (" << marketX << ", " << marketY << ")\n";
+
+	// Set moveDelay for all units after spawning -- Changes speed of OG units
+    for (auto& unit : unitManager->getUnits()) {
+        unit.moveDelay = 1; 
     }
+
+	// Create a market at a fixed location for testing
+	if (g_MarketManager && cellGrid) {
+		int marketX = 10;  // Grid coordinates
+		int marketY = 10;
+		g_MarketManager->addMarket(Market(marketX, marketY));
+		std::cout << "Initialized market at grid (" << marketX << ", " << marketY << ")\n";
+	}
 }
 
 void UnitManager::renderUnitPaths(SDL_Renderer* renderer, const CellGrid& cellGrid) {
