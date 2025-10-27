@@ -1129,12 +1129,12 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 				break;
 			}
 			
-			// Transfer coin to seller (will be processed in GameLoop)
+			// Transfer coin to seller (GameLoop processes coins with ownedByHouseId set)
 			int coinId = coinInventory.back();
 			coinInventory.pop_back();
 			
-			// Mark the transaction for GameLoop to process
-			// GameLoop will add coin to seller's receivedCoins and trigger BringCoinToHouse
+			// Mark the coin with seller's ID so GameLoop can add it to seller's receivedCoins
+			// The coin's ownedByHouseId field is set below to trigger this mechanism
 			
 			// Pick up the food
 			auto foodIt = std::find_if(foods.begin(), foods.end(), [&](const Food& food) {
