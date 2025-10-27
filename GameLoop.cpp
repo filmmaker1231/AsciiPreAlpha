@@ -596,4 +596,6 @@ void runMainLoop(sdl& app) {
         SDL_RenderPresent(app.renderer);
         SDL_Delay(16); // ~60 FPS
     }
+
+	
 }
