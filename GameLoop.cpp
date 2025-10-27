@@ -85,6 +85,14 @@ void runMainLoop(sdl& app) {
 												unit.isSelling = false;
 												unit.sellingStallX = -1;
 												unit.sellingStallY = -1;
+												
+												// Also clear any active SellAtMarket action
+												if (!unit.actionQueue.empty()) {
+													Action current = unit.actionQueue.top();
+													if (current.type == ActionType::SellAtMarket) {
+														unit.actionQueue.pop();
+													}
+												}
 											}
 										}
 									}
@@ -470,18 +478,43 @@ void runMainLoop(sdl& app) {
 			// Sell at market if house is full
 			if (g_HouseManager && g_MarketManager) {
 				bool alreadySelling = false;
+				bool alreadyBringingCoin = false;
 				if (!unit.actionQueue.empty()) {
 					Action current = unit.actionQueue.top();
 					if (current.type == ActionType::SellAtMarket) {
 						alreadySelling = true;
 					}
+					if (current.type == ActionType::BringCoinToHouse) {
+						alreadyBringingCoin = true;
+					}
 				}
 				
-				// If unit is marked as selling but not actively selling, resume selling
-				if (!alreadySelling && unit.isSelling && unit.sellingStallX != -1) {
-					// Resume selling at their stall
-					unit.addAction(Action(ActionType::SellAtMarket, 2));
-				} else if (!alreadySelling && !unit.isSelling) {
+				// Don't trigger sell if unit is bringing coin home or has coins to collect
+				bool isBusyWithCoin = alreadyBringingCoin || unit.carriedCoinId != -1 || !unit.receivedCoins.empty();
+				
+				// If unit is marked as selling but not actively selling, validate before resuming
+				if (!alreadySelling && !isBusyWithCoin && unit.isSelling && unit.sellingStallX != -1) {
+					// Validate that house is still full and has food before resuming
+					bool shouldResume = false;
+					for (auto& house : g_HouseManager->houses) {
+						if (house.ownerUnitId == unit.id &&
+							house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
+							if (!house.hasSpace() && house.hasFood()) {
+								shouldResume = true;
+							}
+							break;
+						}
+					}
+					if (shouldResume) {
+						// Resume selling at their stall
+						unit.addAction(Action(ActionType::SellAtMarket, 2));
+					} else {
+						// Can't resume - clear selling state
+						unit.isSelling = false;
+						unit.sellingStallX = -1;
+						unit.sellingStallY = -1;
+					}
+				} else if (!alreadySelling && !isBusyWithCoin && !unit.isSelling) {
 					// Check if unit's house is full and has food
 					for (auto& house : g_HouseManager->houses) {
 						if (house.ownerUnitId == unit.id &&
@@ -703,6 +736,8 @@ void runMainLoop(sdl& app) {
 							}
 							if (!alreadyAdded) {
 								seller.receivedCoins.push_back(coin.coinId);
+								std::cout << "Market: Seller " << seller.name << " (id " << seller.id 
+								          << ") received coin (id " << coin.coinId << ") from sale.\n";
 								// Clear the seller's selling status
 								seller.isSelling = false;
 								seller.sellingStallX = -1;

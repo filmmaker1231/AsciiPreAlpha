@@ -1057,6 +1057,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 			
 			if (!myHouse || !myHouse->hasFood()) {
 				// No house or no food to sell
+				std::cout << "Unit " << name << " cancelling SellAtMarket - no house or no food available.\n";
 				isSelling = false;
 				actionQueue.pop();
 				break;
