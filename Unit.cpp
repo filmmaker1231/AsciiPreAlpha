@@ -1274,6 +1274,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 				coinIt->y = py;
 				coinIt->carriedByUnitId = -1;
 				coinIt->ownedByHouseId = sellerIdTemp; // Mark as owned by seller
+				coinIt->fromMarketSale = true; // Mark as a coin from market sale
 			}
 			
 			std::cout << "Unit " << name << " (buyer) and seller (id " << sellerIdTemp << ") have made a deal.\n";
