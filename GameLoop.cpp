@@ -74,6 +74,46 @@ void runMainLoop(sdl& app) {
                     }
                 }
             }
+            
+            // Market trading logic - check every 300 frames (~5 seconds at 60 FPS)
+            if ((frameCounter % 300 == 0) && g_HouseManager && g_MarketManager && !g_MarketManager->markets.empty()) {
+                // Find unit's house
+                for (const auto& house : g_HouseManager->houses) {
+                    if (house.ownerUnitId == unit.id) {
+                        // If unit has excess food (more than 2), consider selling
+                        if (house.foodIds.size() > 2) {
+                            bool alreadyTrading = false;
+                            if (!unit.actionQueue.empty()) {
+                                Action current = unit.actionQueue.top();
+                                if (current.type == ActionType::SellFoodAtMarket || 
+                                    current.type == ActionType::BuyFoodAtMarket) {
+                                    alreadyTrading = true;
+                                }
+                            }
+                            if (!alreadyTrading) {
+                                unit.addAction(Action(ActionType::SellFoodAtMarket, 5));
+                                std::cout << "Unit " << unit.name << " will sell food at market\n";
+                            }
+                        }
+                        // If unit has low food (less than 1) and enough coins, consider buying
+                        else if (house.foodIds.size() < 1 && house.coins >= 3) {
+                            bool alreadyTrading = false;
+                            if (!unit.actionQueue.empty()) {
+                                Action current = unit.actionQueue.top();
+                                if (current.type == ActionType::SellFoodAtMarket || 
+                                    current.type == ActionType::BuyFoodAtMarket) {
+                                    alreadyTrading = true;
+                                }
+                            }
+                            if (!alreadyTrading) {
+                                unit.addAction(Action(ActionType::BuyFoodAtMarket, 7));
+                                std::cout << "Unit " << unit.name << " will buy food at market\n";
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
 
             // Process queued actions - only if there's something to process
             if (!unit.actionQueue.empty() || !unit.path.empty()) {

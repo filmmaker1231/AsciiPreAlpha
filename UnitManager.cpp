@@ -113,6 +113,18 @@ void initializeGameUnits(UnitManager* unitManager, CellGrid* cellGrid) {
     for (auto& unit : unitManager->getUnits()) {
         unit.moveDelay = 50;
     }
+    
+    // Initialize markets if MarketManager exists
+    if (g_MarketManager && cellGrid) {
+        int gridWidth = cellGrid->getWidthInCells();
+        int gridHeight = cellGrid->getHeightInCells();
+        
+        // Create a market in the middle of the map
+        int marketX = gridWidth / 2;
+        int marketY = gridHeight / 2;
+        g_MarketManager->addMarket(Market(marketX, marketY, 10, 100, 3));
+        std::cout << "Created market at (" << marketX << ", " << marketY << ")\n";
+    }
 }
 
 void UnitManager::renderUnitPaths(SDL_Renderer* renderer, const CellGrid& cellGrid) {
