@@ -910,6 +910,11 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 		// This action requires access to other units, handled in GameLoop.cpp
 		// Here we just maintain the path and handle clamping
 		// The actual fighting logic is in GameLoop.cpp
+		
+		// If stolenFromByUnitId is -1, the fight is over, so remove this action
+		if (stolenFromByUnitId == -1) {
+			actionQueue.pop();
+		}
 		break;
 	}
 
