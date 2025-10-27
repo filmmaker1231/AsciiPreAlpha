@@ -516,9 +516,9 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 	}
 	case ActionType::CollectCoin: {
 		// Similar to CollectSeed but for coins
-		// 1. If not carrying coin, path to closest free coin
+		// 1. If not carrying coin, path to closest free coin within 20 tiles
 		if (carriedCoinId == -1) {
-			// Not carrying coin - find closest free coin (not carried, not owned)
+			// Not carrying coin - find closest free coin (not carried, not owned) within 20 tiles
 			int unitGridX, unitGridY;
 			cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
 			
@@ -534,6 +534,10 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 				int cx, cy;
 				cellGrid.pixelToGrid(coins[i].x, coins[i].y, cx, cy);
 				int dist = abs(cx - unitGridX) + abs(cy - unitGridY);
+				
+				// Only consider coins within 20 tiles
+				if (dist > 20) continue;
+				
 				if (dist < minDist) {
 					minDist = dist;
 					closestIdx = static_cast<int>(i);
@@ -543,7 +547,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 			}
 			
 			if (closestIdx == -1) {
-				// No coin found, give up
+				// No coin found within 20 tiles, give up
 				actionQueue.pop();
 				break;
 			}
