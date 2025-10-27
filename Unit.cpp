@@ -562,7 +562,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 			if (it != coins.end()) {
 				if (myHouse->addCoin(carriedCoinId)) {
 					it->carriedByUnitId = -1;
-					// Do NOT set ownedByHouseId here - that field is for market sale tracking only
+					it->ownedByHouseId = myHouse->ownerUnitId; // Mark as owned by house owner
 					// Position coin in house storage (find which slot it was placed in)
 					bool positioned = false;
 					for (int dx = 0; dx < 3 && !positioned; ++dx) {
@@ -1428,7 +1428,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 				if (coinIt != coins.end()) {
 					if (myHouse->addCoin(carriedCoinId)) {
 						coinIt->carriedByUnitId = -1;
-						coinIt->ownedByHouseId = -1; // Clear ownership - coin is now in house storage
+						coinIt->ownedByHouseId = myHouse->ownerUnitId; // Mark as owned by house owner
 						// Position coin in house
 						for (int dx = 0; dx < 3; ++dx) {
 							for (int dy = 0; dy < 3; ++dy) {
