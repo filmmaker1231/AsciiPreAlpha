@@ -555,14 +555,14 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 		}
 		
 		if (myHouse && myHouse->hasSpace() && carriedCoinId != -1) {
-			// Find the coin object and mark it as owned by house
+			// Find the coin object and store it in house
 			auto it = std::find_if(coins.begin(), coins.end(), [&](const Coin& coin) {
 				return coin.coinId == carriedCoinId;
 			});
 			if (it != coins.end()) {
 				if (myHouse->addCoin(carriedCoinId)) {
 					it->carriedByUnitId = -1;
-					it->ownedByHouseId = myHouse->ownerUnitId;
+					// Do NOT set ownedByHouseId here - that field is for market sale tracking only
 					// Position coin in house storage (find which slot it was placed in)
 					bool positioned = false;
 					for (int dx = 0; dx < 3 && !positioned; ++dx) {
