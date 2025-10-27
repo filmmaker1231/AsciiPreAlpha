@@ -157,35 +157,8 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 			});
 
 		if (it != foods.end()) {
-			// Drop seeds before eating the food
-			std::random_device rd;
-			std::mt19937 gen(rd());
-			std::uniform_int_distribution<> seedDist(1, 100);
-			int numSeeds = (seedDist(gen) <= 15) ? 2 : 1; // 15% chance for 2 seeds
-			
-			int pixelX, pixelY;
-			cellGrid.gridToPixel(gridX, gridY, pixelX, pixelY);
-			
-			for (int i = 0; i < numSeeds; ++i) {
-				// Create new seed at food location
-				Seed newSeed(pixelX, pixelY, "seed", g_nextSeedId++);
-				
-				// Check if this location is in the unit's home
-				if (g_HouseManager) {
-					for (auto& house : g_HouseManager->houses) {
-						if (house.ownerUnitId == id &&
-							gridX >= house.gridX && gridX < house.gridX + 3 &&
-							gridY >= house.gridY && gridY < house.gridY + 3) {
-							// Seed dropped in home, owned by homeowner
-							newSeed.ownedByHouseId = id;
-							break;
-						}
-					}
-				}
-				
-				seeds.push_back(newSeed);
-				std::cout << "Dropped seed " << newSeed.seedId << " at (" << gridX << ", " << gridY << ")\n";
-			}
+			// TODO: Seeds disabled for testing - re-enable after market system testing is complete
+			// Original behavior: 15% chance for 2 seeds, 85% chance for 1 seed, dropped at eating location
 			
 			// Eat the food
 			hunger = 100;
@@ -355,25 +328,8 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 					return food.foodId == foodId;
 				});
 				if (it != foods.end()) {
-					// Drop seeds before eating the food
-					std::random_device rd;
-					std::mt19937 gen(rd());
-					std::uniform_int_distribution<> seedDist(1, 100);
-					int numSeeds = (seedDist(gen) <= 15) ? 0 : 0; // 0% chance for seeds for now
-					
-					int pixelX, pixelY;
-					cellGrid.gridToPixel(unitGridX, unitGridY, pixelX, pixelY);
-					
-					for (int i = 0; i < numSeeds; ++i) {
-						// Create new seed at eating location (in home)
-						Seed newSeed(pixelX, pixelY, "seed", g_nextSeedId++);
-						
-						// Seed dropped in home, owned by homeowner
-						newSeed.ownedByHouseId = id;
-						
-						seeds.push_back(newSeed);
-						std::cout << "Dropped seed " << newSeed.seedId << " in house at (" << unitGridX << ", " << unitGridY << ")\n";
-					}
+					// TODO: Seeds disabled for testing - re-enable after market system testing is complete
+					// When re-enabling, restore seed dropping code here (15% chance for 2 seeds, else 1)
 					
 					hunger = 100;
 					myHouse->removeFoodById(foodId);
@@ -1001,26 +957,8 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 					return food.foodId == foodId;
 				});
 				if (it != foods.end()) {
-					// Drop seeds before eating the food
-					std::random_device rd;
-					std::mt19937 gen(rd());
-					std::uniform_int_distribution<> seedDist(1, 100);
-					int numSeeds = (seedDist(gen) <= 15) ? 2 : 1; // 15% chance for 2 seeds
-					
-					int pixelX, pixelY;
-					cellGrid.gridToPixel(unitGridX, unitGridY, pixelX, pixelY);
-					
-					// Seed drops are owned by the house owner (not the thief)
-					for (int i = 0; i < numSeeds; ++i) {
-						// Create new seed at eating location (in the victim's home)
-						Seed newSeed(pixelX, pixelY, "seed", g_nextSeedId++);
-						
-						// Seed dropped in home, owned by the home owner (victim)
-						newSeed.ownedByHouseId = targetHouse->ownerUnitId;
-						
-						seeds.push_back(newSeed);
-						std::cout << "Dropped seed " << newSeed.seedId << " in house at (" << unitGridX << ", " << unitGridY << ") owned by unit " << targetHouse->ownerUnitId << "\n";
-					}
+					// TODO: Seeds disabled for testing - re-enable after market system testing is complete
+					// Original behavior: 15% chance for 2 seeds, 85% chance for 1 seed, owned by victim
 					
 					// Eat the stolen food
 					hunger = 100;
@@ -1052,6 +990,40 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 	}
 	case ActionType::SellAtMarket: {
 		// Sell food at a market stall
+		// If already at stall selling, return there and wait
+		if (isSelling && sellingStallX != -1 && sellingStallY != -1) {
+			// Navigate back to stall
+			int unitGridX, unitGridY;
+			cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
+			
+			if (unitGridX != sellingStallX || unitGridY != sellingStallY) {
+				if (path.empty()) {
+					auto newPath = aStarFindPath(unitGridX, unitGridY, sellingStallX, sellingStallY, cellGrid);
+					if (!newPath.empty()) path = newPath;
+				}
+				break;
+			}
+			
+			// At stall, update last at stall time
+			lastAtStallTime = SDL_GetTicks();
+			// Verify the stall still has this seller
+			if (g_MarketManager) {
+				for (auto& market : g_MarketManager->markets) {
+					int localX = sellingStallX - market.gridX;
+					int localY = sellingStallY - market.gridY;
+					if (localX >= 0 && localX < 3 && localY >= 0 && localY < 3) {
+						if (market.stallSellerIds[localX][localY] == id) {
+							// Reset abandon time since we're back
+							market.stallAbandonTimes[localX][localY] = 0;
+						}
+						break;
+					}
+				}
+			}
+			// Don't pop - keep waiting at stall
+			break;
+		}
+		
 		// 1. If not carrying food, go to house and pick up food
 		if (carriedFoodId == -1) {
 			House* myHouse = nullptr;
@@ -1069,6 +1041,8 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 				// No house or no food to sell
 				std::cout << "Unit " << name << " cancelling SellAtMarket - no house or no food available.\n";
 				isSelling = false;
+				sellingStallX = -1;
+				sellingStallY = -1;
 				actionQueue.pop();
 				break;
 			}
@@ -1100,12 +1074,19 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 					it->y = y;
 					std::cout << "Unit " << name << " picked up food (id " << foodId << ") to sell at market.\n";
 				}
+			} else {
+				// No food found even though hasFood returned true - cancel
+				std::cout << "Unit " << name << " couldn't find food to pick up.\n";
+				isSelling = false;
+				sellingStallX = -1;
+				sellingStallY = -1;
+				actionQueue.pop();
 			}
 			break;
 		}
 		
 		// 2. If carrying food but not yet at a stall, find a market and navigate to empty stall
-		if (!isSelling || sellingStallX == -1 || sellingStallY == -1) {
+		if (carriedFoodId != -1 && (!isSelling || sellingStallX == -1 || sellingStallY == -1)) {
 			Market* targetMarket = nullptr;
 			int stallX = -1, stallY = -1;
 			
@@ -1163,17 +1144,11 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 			carriedFoodId = -1; // Not carrying anymore
 			
 			std::cout << "Unit " << name << " is now selling at market stall (" << targetGridX << ", " << targetGridY << ").\n";
+			// Don't pop - keep waiting at stall
 			break;
 		}
 		
-		// 3. At stall, wait for buyer (this action stays active)
-		// Update last at stall time
-		int unitGridX, unitGridY;
-		cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
-		if (unitGridX == sellingStallX && unitGridY == sellingStallY) {
-			lastAtStallTime = SDL_GetTicks();
-		}
-		// Don't pop the action, seller stays here until a higher priority action comes
+		// Should not reach here
 		break;
 	}
 	case ActionType::BuyAtMarket: {
@@ -1312,23 +1287,9 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 		if (carriedFoodId != -1) {
 			// Check hunger level
 			if (hunger < 50) {
+				// TODO: Seeds disabled for testing - re-enable after market system testing is complete
+				// Original behavior: 15% chance for 2 seeds, 85% chance for 1 seed
 				// Consume on the spot
-				int unitGridX, unitGridY;
-				cellGrid.pixelToGrid(x, y, unitGridX, unitGridY);
-				
-				// Drop seeds before eating
-				std::random_device rd;
-				std::mt19937 gen(rd());
-				std::uniform_int_distribution<> seedDist(1, 100);
-				int numSeeds = (seedDist(gen) <= 15) ? 2 : 1;
-				
-				int pixelX, pixelY;
-				cellGrid.gridToPixel(unitGridX, unitGridY, pixelX, pixelY);
-				
-				for (int i = 0; i < numSeeds; ++i) {
-					Seed newSeed(pixelX, pixelY, "seed", g_nextSeedId++);
-					seeds.push_back(newSeed);
-				}
 				
 				// Eat the food
 				hunger = 100;
@@ -1396,14 +1357,14 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 		// Bring coin from stall to house after selling
 		// 1. If not carrying coin, navigate to coin location and pick it up
 		if (carriedCoinId == -1 && !receivedCoins.empty()) {
-			// Find a coin that's owned by this seller
+			// Find a coin that was received from sale
 			int coinId = receivedCoins.front();
 			auto coinIt = std::find_if(coins.begin(), coins.end(), [&](const Coin& coin) {
-				return coin.coinId == coinId && coin.ownedByHouseId == id;
+				return coin.coinId == coinId;
 			});
 			
-			if (coinIt == coins.end()) {
-				// Coin not found or already picked up
+			if (coinIt == coins.end() || coinIt->carriedByUnitId != -1) {
+				// Coin not found or already being carried by someone else
 				receivedCoins.erase(receivedCoins.begin());
 				if (receivedCoins.empty()) {
 					actionQueue.pop();
@@ -1428,6 +1389,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 			// Pick up the coin
 			carriedCoinId = coinId;
 			coinIt->carriedByUnitId = id;
+			coinIt->ownedByHouseId = -1; // Clear ownership since we're picking it up
 			coinIt->x = x;
 			coinIt->y = y;
 			receivedCoins.erase(receivedCoins.begin());
@@ -1466,7 +1428,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 				if (coinIt != coins.end()) {
 					if (myHouse->addCoin(carriedCoinId)) {
 						coinIt->carriedByUnitId = -1;
-						coinIt->ownedByHouseId = id;
+						coinIt->ownedByHouseId = -1; // Clear ownership - coin is now in house storage
 						// Position coin in house
 						for (int dx = 0; dx < 3; ++dx) {
 							for (int dy = 0; dy < 3; ++dy) {

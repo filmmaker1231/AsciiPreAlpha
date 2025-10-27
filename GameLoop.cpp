@@ -16,6 +16,20 @@
 #include <algorithm> // for find_if
 #include <queue>
 
+// Helper function to clear a seller's SellAtMarket action
+static void clearSellerAction(Unit& seller) {
+    seller.isSelling = false;
+    seller.sellingStallX = -1;
+    seller.sellingStallY = -1;
+    // Clear SellAtMarket action if it's at the top
+    if (!seller.actionQueue.empty()) {
+        const Action& topAction = seller.actionQueue.top();
+        if (topAction.type == ActionType::SellAtMarket) {
+            seller.actionQueue.pop();
+        }
+    }
+}
+
 void runMainLoop(sdl& app) {
     bool running = true;
     SDL_Event event;
@@ -86,27 +100,19 @@ void runMainLoop(sdl& app) {
                                         }
                                     }
 
+                                    // Clear seller's selling status if seller unit still exists
+                                    int sellerIdToCheck = stallSellerId;
+                                    
                                     // Clear the stall and reset fields
                                     stallFoodId = -1;
                                     stallSellerId = -1;
                                     // reset timer (only once)
                                     stallAbandonTime = 0;
 
-                                    // Clear seller's selling status if seller unit still exists
-                                    if (stallSellerId != -1 && app.unitManager) {
+                                    if (sellerIdToCheck != -1 && app.unitManager) {
                                         for (auto& unit : app.unitManager->getUnits()) {
-                                            if (unit.id == stallSellerId && unit.isSelling) {
-                                                unit.isSelling = false;
-                                                unit.sellingStallX = -1;
-                                                unit.sellingStallY = -1;
-                                                // Clear SellAtMarket action if it's at the top
-                                                if (!unit.actionQueue.empty()) {
-                                                    const Action& topAction = unit.actionQueue.top();
-                                                    if (topAction.type == ActionType::SellAtMarket) {
-                                                        // re-check not empty before pop
-                                                        if (!unit.actionQueue.empty()) unit.actionQueue.pop();
-                                                    }
-                                                }
+                                            if (unit.id == sellerIdToCheck && unit.isSelling) {
+                                                clearSellerAction(unit);
                                             }
                                         }
                                     }
@@ -413,27 +419,42 @@ void runMainLoop(sdl& app) {
                     }
                     bool isBusyWithCoin = alreadyBringingCoin || unit.carriedCoinId != -1 || !unit.receivedCoins.empty();
 
+                    // If unit is already selling at a stall, they should stay there waiting for buyer
+                    // Only resume if they left for higher priority task and that task is now complete
                     if (!alreadySelling && !isBusyWithCoin && unit.isSelling && unit.sellingStallX != -1) {
-                        bool shouldResume = false;
-                        for (auto& house : g_HouseManager->houses) {
-                            if (house.ownerUnitId == unit.id &&
-                                house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
-                                if (!house.hasSpace() && house.hasFood() && !house.hasCoin()) shouldResume = true;
-                                break;
+                        // Check if the stall still has the food (not sold yet)
+                        bool stallStillActive = false;
+                        for (auto& market : g_MarketManager->markets) {
+                            int localX = unit.sellingStallX - market.gridX;
+                            int localY = unit.sellingStallY - market.gridY;
+                            if (localX >= 0 && localX < 3 && localY >= 0 && localY < 3) {
+                                if (market.stallSellerIds[localX][localY] == unit.id && 
+                                    market.stallFoodIds[localX][localY] != -1) {
+                                    stallStillActive = true;
+                                    break;
+                                }
                             }
                         }
-                        if (shouldResume) {
+                        
+                        if (stallStillActive) {
+                            // Resume selling at the stall
                             unit.addAction(Action(ActionType::SellAtMarket, 2));
                         } else {
+                            // Stall is no longer active (food was sold or cleared)
                             unit.isSelling = false;
                             unit.sellingStallX = -1;
                             unit.sellingStallY = -1;
                         }
-                    } else if (!alreadySelling && !isBusyWithCoin && !unit.isSelling) {
+                    } else if (!alreadySelling && !isBusyWithCoin && !unit.isSelling && unit.carriedFoodId == -1) {
+                        // Only trigger new sell action if:
+                        // - Not already selling
+                        // - Not busy with coin
+                        // - Not currently carrying food to sell
+                        // - House is full
                         for (auto& house : g_HouseManager->houses) {
                             if (house.ownerUnitId == unit.id &&
                                 house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
-                                if (!house.hasSpace() && house.hasFood() && !house.hasCoin()) {
+                                if (!house.hasSpace() && house.hasFood()) {
                                     unit.addAction(Action(ActionType::SellAtMarket, 2));
                                 }
                                 break;
@@ -618,10 +639,8 @@ void runMainLoop(sdl& app) {
                                 seller.receivedCoins.push_back(coin.coinId);
                                 std::cout << "Market: Seller " << seller.name << " (id " << seller.id
                                           << ") received coin (id " << coin.coinId << ") from sale.\n";
-                                // Clear seller selling status
-                                seller.isSelling = false;
-                                seller.sellingStallX = -1;
-                                seller.sellingStallY = -1;
+                                // Clear seller selling status and action
+                                clearSellerAction(seller);
                                 // Mark coin as processed (no longer a fresh market coin)
                                 coin.fromMarketSale = false;
                             } else {
