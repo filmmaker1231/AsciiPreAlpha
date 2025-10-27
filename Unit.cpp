@@ -1597,10 +1597,6 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 
 	case ActionType::MakeFire: {
 		// Find two adjacent sticks, path to them, clamp for 2 seconds, create firesticks
-		
-		
-		
-		
 		if (targetStick1Idx == -1 || targetStick2Idx == -1) {
 			// Find two adjacent sticks
 			for (size_t i = 0; i < sticks.size(); ++i) {
