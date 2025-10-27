@@ -72,20 +72,9 @@ void runMainLoop(sdl& app) {
                         }
                     }
                     
-                    // Count food items in the house
-                    int foodCount = 0;
-                    for (int dx = 0; dx < 3; ++dx) {
-                        for (int dy = 0; dy < 3; ++dy) {
-                            if (house.foodIds[dx][dy] != -1) {
-                                foodCount++;
-                            }
-                        }
-                    }
-                    
-                    // Count seed items in the house
+                    // Count items in the house
+                    int foodCount = house.countFood();
                     int seedCount = house.countSeeds();
-                    
-                    // Count coin items in the house
                     int coinCount = house.countCoins();
                     
                     // Print the house inventory
