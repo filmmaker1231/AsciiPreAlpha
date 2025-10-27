@@ -359,7 +359,7 @@ void Unit::processAction(CellGrid& cellGrid, std::vector<Food>& foods, std::vect
 					std::random_device rd;
 					std::mt19937 gen(rd());
 					std::uniform_int_distribution<> seedDist(1, 100);
-					int numSeeds = (seedDist(gen) <= 15) ? 2 : 1; // 15% chance for 2 seeds
+					int numSeeds = (seedDist(gen) <= 15) ? 0 : 0; // 0% chance for seeds for now
 					
 					int pixelX, pixelY;
 					cellGrid.gridToPixel(unitGridX, unitGridY, pixelX, pixelY);
