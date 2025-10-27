@@ -82,12 +82,15 @@ void runMainLoop(sdl& app) {
                         }
                     }
                     
+                    // Count seed items in the house
+                    int seedCount = house.countSeeds();
+                    
                     // Count coin items in the house
                     int coinCount = house.countCoins();
                     
                     // Print the house inventory
-                    std::cout << ownerName << "'s house has " << foodCount << " food and " 
-                              << coinCount << " coins in it" << std::endl;
+                    std::cout << ownerName << "'s house has " << foodCount << " food, " 
+                              << seedCount << " seeds, and " << coinCount << " coins in it" << std::endl;
                 }
             }
             lastHousePrintTime = now;
