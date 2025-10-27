@@ -22,6 +22,7 @@ void handleInput(sdl& app) {
     bool uHeld = keyState[SDL_SCANCODE_U];
     bool pHeld = keyState[SDL_SCANCODE_P];
     bool dHeld = keyState[SDL_SCANCODE_D];
+    bool cHeld = keyState[SDL_SCANCODE_C];
 
     int mouseX, mouseY;
     Uint32 mouseButtons = SDL_GetMouseState(&mouseX, &mouseY);
@@ -52,6 +53,16 @@ void handleInput(sdl& app) {
             }
         }
     }
+
+	// Spawn coin with C + click (with debounce)
+	if (cHeld && (mouseButtons & SDL_BUTTON(SDL_BUTTON_LEFT))) {
+		if (currentTime - lastFoodSpawnTime >= SPAWN_DEBOUNCE_MS) {
+			if (app.coinManager) {
+				app.coinManager->spawnCoin(mouseX, mouseY);
+				lastFoodSpawnTime = currentTime;
+			}
+		}
+	}
 
     // Path last unit with P + click
     if (pHeld && (mouseButtons & SDL_BUTTON(SDL_BUTTON_LEFT))) {

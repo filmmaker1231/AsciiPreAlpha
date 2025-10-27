@@ -95,3 +95,42 @@ public:
 
 };      // Manages seeds
 
+class Coin {
+public:
+	std::string type;   // type of coin
+    int x, y;           // Position on the grid
+    char symbol;        // Character to display ('$')
+    int coinId;
+    int carriedByUnitId; // -1 if not carried, otherwise the unit ID carrying it
+    int ownedByHouseId;  // -1 if not owned, otherwise the house owner's unit ID
+    
+    Coin(int x, int y, int coinId)
+		: x(x), y(y), symbol('$'), type("coin"), coinId(coinId), 
+		  carriedByUnitId(-1), ownedByHouseId(-1) {
+	}
+};
+
+class CoinManager {
+private:
+    std::vector<Coin> coins;
+    TTF_Font* font;
+
+public:
+    CoinManager();
+    ~CoinManager();
+
+    // Initialize font for rendering
+    bool initializeFont(const char* fontPath, int fontSize);
+
+    // Spawn coin with $ symbol at given position
+    void spawnCoin(int x, int y);
+
+    // Render all coins
+    void renderCoins(SDL_Renderer* renderer);
+
+    
+    std::vector<Coin>& getCoins();
+    const std::vector<Coin>& getCoins() const;
+
+};      // Manages coins
+
