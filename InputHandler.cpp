@@ -12,11 +12,20 @@
 Uint32 lastUnitSpawnTime = 0;
 Uint32 lastFoodSpawnTime = 0;
 Uint32 lastDeleteTime = 0;
+Uint32 lastPauseToggleTime = 0;
 
 void handleInput(sdl& app) {
     const Uint8* keyState = SDL_GetKeyboardState(nullptr);
     Uint32 currentTime = SDL_GetTicks();
 
+    // Toggle pause with SPACE key (with debounce)
+    bool spaceHeld = keyState[SDL_SCANCODE_SPACE];
+    if (spaceHeld) {
+        if (currentTime - lastPauseToggleTime >= PAUSE_DEBOUNCE_MS) {
+            app.isPaused = !app.isPaused;
+            lastPauseToggleTime = currentTime;
+        }
+    }
 
 	bool fHeld = keyState[SDL_SCANCODE_F];
     bool uHeld = keyState[SDL_SCANCODE_U];

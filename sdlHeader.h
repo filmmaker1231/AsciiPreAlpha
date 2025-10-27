@@ -20,6 +20,7 @@ struct sdl {
 	CoinManager* coinManager = nullptr;
 
     bool showCellGrid = false;
+	bool isPaused = false;
 	
 	
 };
