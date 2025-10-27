@@ -237,6 +237,89 @@ void runMainLoop(sdl& app) {
                     }
                 }
 
+                // --- KILN CREATION & PIGGY BANK PRODUCTION CHAIN LOGIC ---
+                // When unit's home has at least 2 coins, start the kiln creation chain
+                if (g_HouseManager && app.clayManager && app.stickManager) {
+                    for (auto& house : g_HouseManager->houses) {
+                        if (house.ownerUnitId == unit.id &&
+                            house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
+                            if (house.countCoins() >= 2) {
+                                // Check if unit is already working on kiln-related tasks
+                                bool alreadyWorkingOnKiln = false;
+                                if (!unit.actionQueue.empty()) {
+                                    const Action& current = unit.actionQueue.top();
+                                    if (current.type == ActionType::ShapeClay ||
+                                        current.type == ActionType::MakeFire ||
+                                        current.type == ActionType::BuildUnfinishedKiln ||
+                                        current.type == ActionType::BringFiresticksToKiln ||
+                                        current.type == ActionType::BringDryGrassToKiln ||
+                                        current.type == ActionType::FinishKiln ||
+                                        current.type == ActionType::MakePiggyBank ||
+                                        current.type == ActionType::BringPiggyBankHome) {
+                                        alreadyWorkingOnKiln = true;
+                                    }
+                                }
+                                
+                                if (!alreadyWorkingOnKiln) {
+                                    // Check if a kiln already exists
+                                    bool kilnExists = !app.kilnManager->getKilns().empty();
+                                    
+                                    if (kilnExists) {
+                                        // Kiln exists, make piggy banks
+                                        bool hasClay = !app.clayManager->getClays().empty();
+                                        if (hasClay && unit.carriedPiggyBankId == -1) {
+                                            unit.addAction(Action(ActionType::MakePiggyBank, 6));
+                                            unit.addAction(Action(ActionType::BringPiggyBankHome, 6));
+                                        }
+                                    } else {
+                                        // No kiln, need to create one - start the chain
+                                        bool hasUnfinishedKiln = !app.unfinishedKilnManager->getUnfinishedKilns().empty();
+                                        bool hasBrick = !app.brickManager->getBricks().empty();
+                                        bool hasShapedClay = !app.shapedClayManager->getShapedClays().empty();
+                                        bool hasClay = !app.clayManager->getClays().empty();
+                                        bool hasFiresticks = !app.firesticksManager->getFiresticks().empty();
+                                        
+                                        if (hasUnfinishedKiln) {
+                                            // Unfinished kiln exists, complete it
+                                            auto& unfinishedKilns = app.unfinishedKilnManager->getUnfinishedKilns();
+                                            bool needsFiresticks = false;
+                                            bool needsDryGrass = false;
+                                            bool readyToFinish = false;
+                                            
+                                            for (const auto& uk : unfinishedKilns) {
+                                                if (!uk.hasFiresticks) needsFiresticks = true;
+                                                else if (!uk.hasDryGrass) needsDryGrass = true;
+                                                else readyToFinish = true;
+                                            }
+                                            
+                                            if (readyToFinish) {
+                                                unit.addAction(Action(ActionType::FinishKiln, 6));
+                                            } else if (needsFiresticks && hasFiresticks) {
+                                                unit.addAction(Action(ActionType::BringFiresticksToKiln, 6));
+                                            } else if (needsDryGrass && !app.dryGrassManager->getDryGrasses().empty()) {
+                                                unit.addAction(Action(ActionType::BringDryGrassToKiln, 6));
+                                            } else if (needsFiresticks && !hasFiresticks) {
+                                                // Need to make fire first
+                                                unit.addAction(Action(ActionType::MakeFire, 6));
+                                            }
+                                        } else if (hasBrick) {
+                                            // Brick exists, build unfinished kiln
+                                            unit.addAction(Action(ActionType::BuildUnfinishedKiln, 6));
+                                        } else if (hasShapedClay) {
+                                            // Shaped clay exists, wait for it to become brick (auto-transformation)
+                                            // Do nothing, let auto-transformation happen
+                                        } else if (hasClay) {
+                                            // Clay exists, shape it
+                                            unit.addAction(Action(ActionType::ShapeClay, 6));
+                                        }
+                                    }
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+
                 // --- HUNGER LOGIC START ---
                 if (now - unit.lastHungerUpdate >= HUNGER_DECAY_MS) {
                     if (unit.hunger > 0) {
