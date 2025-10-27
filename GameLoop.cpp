@@ -418,7 +418,7 @@ void runMainLoop(sdl& app) {
                         for (auto& house : g_HouseManager->houses) {
                             if (house.ownerUnitId == unit.id &&
                                 house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
-                                if (!house.hasSpace() && house.hasFood()) shouldResume = true;
+                                if (!house.hasSpace() && house.hasFood() && !house.hasCoin()) shouldResume = true;
                                 break;
                             }
                         }
@@ -433,7 +433,7 @@ void runMainLoop(sdl& app) {
                         for (auto& house : g_HouseManager->houses) {
                             if (house.ownerUnitId == unit.id &&
                                 house.gridX == unit.houseGridX && house.gridY == unit.houseGridY) {
-                                if (!house.hasSpace() && house.hasFood()) {
+                                if (!house.hasSpace() && house.hasFood() && !house.hasCoin()) {
                                     unit.addAction(Action(ActionType::SellAtMarket, 2));
                                 }
                                 break;
