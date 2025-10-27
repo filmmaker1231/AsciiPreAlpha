@@ -138,6 +138,7 @@ void initializeGameUnits(UnitManager* unitManager, CellGrid* cellGrid) {
 
     // Spawn a few sample units
     unitManager->spawnUnit(200, 150, "Bubby", cellGrid);
+	unitManager->spawnUnit(200, 150, "Charles", cellGrid);
 	
     
 
