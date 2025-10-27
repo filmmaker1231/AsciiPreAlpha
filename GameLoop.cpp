@@ -41,6 +41,9 @@ void runMainLoop(sdl& app) {
     const Uint32 MORALITY_UPDATE_MS = 1000; // Update morality every 1 second
     const Uint32 SELLER_ABANDON_MS = 200000; // 200 seconds -> 200,000 ms
     const Uint32 FIGHT_CLAMP_MS = 2000;     // 2 seconds clamp during fight
+    const Uint32 HOUSE_PRINT_MS = 10000;    // Print house contents every 10 seconds
+
+    static Uint32 lastHousePrintTime = 0;
 
     while (running) {
         // Handle events
@@ -55,6 +58,40 @@ void runMainLoop(sdl& app) {
         ++frameCounter;
 
         Uint32 now = SDL_GetTicks();
+
+        // --- HOUSE INVENTORY PRINTING LOGIC ---
+        if (now - lastHousePrintTime >= HOUSE_PRINT_MS) {
+            if (g_HouseManager && app.unitManager) {
+                for (const auto& house : g_HouseManager->houses) {
+                    // Find the unit that owns this house
+                    std::string ownerName = "Unknown";
+                    for (const auto& unit : app.unitManager->getUnits()) {
+                        if (unit.id == house.ownerUnitId) {
+                            ownerName = unit.name;
+                            break;
+                        }
+                    }
+                    
+                    // Count food items in the house
+                    int foodCount = 0;
+                    for (int dx = 0; dx < 3; ++dx) {
+                        for (int dy = 0; dy < 3; ++dy) {
+                            if (house.foodIds[dx][dy] != -1) {
+                                foodCount++;
+                            }
+                        }
+                    }
+                    
+                    // Count coin items in the house
+                    int coinCount = house.countCoins();
+                    
+                    // Print the house inventory
+                    std::cout << ownerName << "'s house has " << foodCount << " food and " 
+                              << coinCount << " coins in it" << std::endl;
+                }
+            }
+            lastHousePrintTime = now;
+        }
 
         // --- MARKET STALL ABANDONMENT LOGIC ---
         if (g_MarketManager) {
