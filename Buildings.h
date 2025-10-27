@@ -84,6 +84,16 @@ struct House {
 		return false;
 	}
 
+	// Count how many food items are in house
+	int countFood() const {
+		int count = 0;
+		for (int dx = 0; dx < 3; ++dx)
+			for (int dy = 0; dy < 3; ++dy)
+				if (foodIds[dx][dy] != -1)
+					count++;
+		return count;
+	}
+
 	// Returns true if house has at least one seed item
 	bool hasSeed() const {
 		for (int dx = 0; dx < 3; ++dx)
